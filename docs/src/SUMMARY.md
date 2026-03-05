@@ -1,0 +1,22 @@
+# Summary
+
+[Introduction](./introduction.md)
+
+# User Guide
+
+- [Getting Started](./getting-started/installation.md)
+  - [Configuration](./getting-started/configuration.md)
+- [Usage](./guides/usage.md)
+  - [Detecting Flaky Tests](./guides/detecting.md)
+  - [Quarantine Management](./guides/quarantine.md)
+  - [Exporting Results](./guides/exporting.md)
+  - [CI Integration](./guides/ci-integration.md)
+
+# Reference
+
+- [Architecture](./reference/architecture.md)
+- [Bayesian Detection](./reference/bayesian.md)
+- [Analysis & Patterns](./reference/analysis.md)
+- [Storage](./reference/storage.md)
+- [CLI Reference](./reference/cli.md)
+- [Configuration Reference](./reference/configuration.md)
