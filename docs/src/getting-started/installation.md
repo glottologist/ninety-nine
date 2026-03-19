@@ -43,24 +43,30 @@ This creates a `.ninety-nine.toml` file with sensible defaults. You can overwrit
 cargo ninety-nine init --force
 ```
 
-## First Detection Run
+## First Test Run
 
 Run detection with default settings (10 iterations per test):
 
 ```bash
-cargo ninety-nine detect
+cargo ninety-nine test
 ```
 
-Filter to specific tests:
+Filter to specific tests using a name pattern:
 
 ```bash
-cargo ninety-nine detect "my_module::tests"
+cargo ninety-nine test "my_module::tests"
+```
+
+Use the filter DSL to target specific subsets:
+
+```bash
+cargo ninety-nine test "flaky & !quarantined"
 ```
 
 Increase iterations for higher confidence:
 
 ```bash
-cargo ninety-nine detect -n 50 --confidence 0.99
+cargo ninety-nine test -n 50 --confidence 0.99
 ```
 
 ## Output Formats

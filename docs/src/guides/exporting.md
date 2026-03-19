@@ -34,6 +34,36 @@ test_name,probability_flaky,pass_rate,total_runs,consecutive_failures,category,c
 
 Values containing commas, quotes, or newlines are properly escaped per RFC 4180.
 
+### JSON
+
+```bash
+cargo ninety-nine export json results.json
+```
+
+Produces a JSON array of flakiness score objects with full detail, including Bayesian parameters. Useful for programmatic consumption, custom dashboards, or piping into other tools.
+
+```json
+[
+  {
+    "test_name": "tests::example",
+    "probability_flaky": 0.167,
+    "confidence": 0.95,
+    "pass_rate": 0.8,
+    "fail_rate": 0.2,
+    "total_runs": 10,
+    "consecutive_failures": 1,
+    "bayesian_params": {
+      "alpha": 1.0,
+      "beta": 1.0,
+      "posterior_mean": 0.167,
+      "posterior_variance": 0.01,
+      "credible_interval_lower": 0.02,
+      "credible_interval_upper": 0.38
+    }
+  }
+]
+```
+
 ## Data Source
 
-Export uses the most recent flakiness scores stored in the SQLite database. Run `detect` first to populate data.
+Export uses the most recent flakiness scores stored in the SQLite database. Run `test` first to populate data.

@@ -59,7 +59,7 @@ If you prefer to configure CI manually:
 cargo install cargo-ninety-nine
 
 # Run detection
-cargo ninety-nine detect -n 20 --confidence 0.95
+cargo ninety-nine test -n 20 --confidence 0.95
 
 # Export for CI test report parsing
 cargo ninety-nine export junit flaky-results.xml
