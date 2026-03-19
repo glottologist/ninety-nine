@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+use std::time::Duration;
+
 use clap::ValueEnum;
 use colored::Colorize;
 
@@ -33,6 +36,81 @@ pub fn print_summary(scores: &[FlakinessScore], detector: &BayesianDetector) {
     );
 }
 
+pub fn print_run_header(test_count: usize, iterations: u32) {
+    println!(
+        "\n{} {} tests ({} iterations each)...\n",
+        "Running".bold(),
+        test_count,
+        iterations,
+    );
+}
+
+pub fn print_test_result_line(test_name: &str, passed: u32, total: u32, duration: Duration) {
+    let secs = duration.as_secs_f64();
+    let name = truncate_name(test_name, 60);
+
+    if passed == total {
+        println!(
+            " {} [{}/{}] [{:.2}s] {}",
+            "PASS".green().bold(),
+            passed,
+            total,
+            secs,
+            name,
+        );
+    } else if passed == 0 {
+        println!(
+            " {} [{}/{}] [{:.2}s] {}",
+            "FAIL".red().bold(),
+            passed,
+            total,
+            secs,
+            name,
+        );
+    } else {
+        println!(
+            "{} [{}/{}] [{:.2}s] {}",
+            "FLAKY".yellow().bold(),
+            passed,
+            total,
+            secs,
+            name,
+        );
+    }
+}
+
+pub fn print_run_summary(total: usize, passed: usize, flaky: usize, failed: usize) {
+    println!(
+        "\n{}: {} total, {} passed, {} flaky, {} failed",
+        "Results".bold(),
+        total,
+        passed,
+        flaky,
+        failed,
+    );
+}
+
+pub fn print_duration_warning(test_name: &str, current_ms: f64, mean_ms: f64, factor: f64) {
+    println!(
+        "  {} {} — {:.0}ms (mean: {:.0}ms, {:.1}x slower)",
+        "SLOW".yellow().bold(),
+        test_name,
+        current_ms,
+        mean_ms,
+        factor,
+    );
+}
+
+pub fn print_duration_regression_summary(count: usize) {
+    if count > 0 {
+        println!(
+            "\n{}: {} tests with duration regression",
+            "Duration".bold(),
+            count,
+        );
+    }
+}
+
 fn print_console_report(scores: &[FlakinessScore]) {
     if scores.is_empty() {
         println!("{}", "No test results to display.".dimmed());
@@ -53,7 +131,7 @@ fn print_console_report(scores: &[FlakinessScore]) {
 
     for score in scores {
         let category = FlakinessCategory::from_score(score.probability_flaky);
-        let category_str = format_category(&category);
+        let category_str = format_category(category);
 
         println!(
             "{:<50} {:>10} {:>9.1}% {:>9.1}% {:>12}",
@@ -69,12 +147,13 @@ fn print_console_report(scores: &[FlakinessScore]) {
 }
 
 fn print_json_report(scores: &[FlakinessScore]) {
-    if let Ok(json) = serde_json::to_string_pretty(scores) {
-        println!("{json}");
+    match serde_json::to_string_pretty(scores) {
+        Ok(json) => println!("{json}"),
+        Err(e) => tracing::warn!("failed to serialize scores to JSON: {e}"),
     }
 }
 
-fn format_category(category: &FlakinessCategory) -> String {
+fn format_category(category: FlakinessCategory) -> String {
     let label = category.label();
     match category {
         FlakinessCategory::Stable => label.green().to_string(),
@@ -88,11 +167,10 @@ fn format_category(category: &FlakinessCategory) -> String {
 pub fn print_session_report(sessions: &[RunSession], format: OutputFormat) {
     match format {
         OutputFormat::Console => print_console_sessions(sessions),
-        OutputFormat::Json => {
-            if let Ok(json) = serde_json::to_string_pretty(sessions) {
-                println!("{json}");
-            }
-        }
+        OutputFormat::Json => match serde_json::to_string_pretty(sessions) {
+            Ok(json) => println!("{json}"),
+            Err(e) => tracing::warn!("failed to serialize sessions to JSON: {e}"),
+        },
     }
 }
 
@@ -151,8 +229,9 @@ pub fn print_test_detail(
                 "trend": trend,
                 "patterns": patterns,
             });
-            if let Ok(json) = serde_json::to_string_pretty(&detail) {
-                println!("{json}");
+            match serde_json::to_string_pretty(&detail) {
+                Ok(json) => println!("{json}"),
+                Err(e) => tracing::warn!("failed to serialize test detail to JSON: {e}"),
             }
         }
     }
@@ -167,7 +246,7 @@ fn print_console_test_detail(
     let category = FlakinessCategory::from_score(score.probability_flaky);
 
     println!("\n{}\n", score.test_name.bold().underline());
-    println!("  Category:      {}", format_category(&category));
+    println!("  Category:      {}", format_category(category));
     println!("  P(flaky):      {:.1}%", score.probability_flaky * 100.0);
     println!("  Pass rate:     {:.1}%", score.pass_rate * 100.0);
     println!("  Total runs:    {}", score.total_runs);
@@ -229,11 +308,10 @@ fn print_console_test_detail(
 pub fn print_quarantine_list(entries: &[QuarantineEntry], format: OutputFormat) {
     match format {
         OutputFormat::Console => print_console_quarantine(entries),
-        OutputFormat::Json => {
-            if let Ok(json) = serde_json::to_string_pretty(entries) {
-                println!("{json}");
-            }
-        }
+        OutputFormat::Json => match serde_json::to_string_pretty(entries) {
+            Ok(json) => println!("{json}"),
+            Err(e) => tracing::warn!("failed to serialize quarantine list to JSON: {e}"),
+        },
     }
 }
 
@@ -268,9 +346,9 @@ fn print_console_quarantine(entries: &[QuarantineEntry]) {
     println!();
 }
 
-fn truncate_name(name: &str, max_len: usize) -> String {
+fn truncate_name(name: &str, max_len: usize) -> Cow<'_, str> {
     if name.len() <= max_len {
-        name.to_string()
+        Cow::Borrowed(name)
     } else {
         let target = max_len.saturating_sub(3);
         let boundary = name
@@ -279,7 +357,7 @@ fn truncate_name(name: &str, max_len: usize) -> String {
             .last()
             .map_or(0, |(i, _)| i);
         let truncated = &name[..boundary];
-        format!("{truncated}...")
+        Cow::Owned(format!("{truncated}..."))
     }
 }
 
@@ -301,7 +379,7 @@ mod tests {
             #[case] max_len: usize,
             #[case] expected: &str,
         ) {
-            assert_eq!(truncate_name(input, max_len), expected);
+            assert_eq!(truncate_name(input, max_len).as_ref(), expected);
         }
 
         proptest! {

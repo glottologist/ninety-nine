@@ -1,8 +1,10 @@
+use crate::types::TestRun;
+use crate::types::test_name::TestName;
 use crate::types::trend::{TrendDirection, TrendSummary};
-use crate::types::{TestOutcome, TestRun};
 
 const TREND_THRESHOLD: f64 = 0.05;
 
+#[must_use]
 pub fn calculate_trend(test_name: &str, runs: &[TestRun], window: u32) -> Option<TrendSummary> {
     let window_size = usize::try_from(window).unwrap_or(usize::MAX);
     let relevant: Vec<&TestRun> = runs
@@ -32,7 +34,7 @@ pub fn calculate_trend(test_name: &str, runs: &[TestRun], window: u32) -> Option
     };
 
     Some(TrendSummary {
-        test_name: test_name.to_string(),
+        test_name: TestName::from(test_name),
         direction,
         recent_score: recent_rate,
         previous_score: previous_rate,
@@ -42,61 +44,19 @@ pub fn calculate_trend(test_name: &str, runs: &[TestRun], window: u32) -> Option
 }
 
 fn failure_rate(runs: &[&TestRun]) -> f64 {
-    if runs.is_empty() {
-        return 0.0;
-    }
-
-    let failures = runs
-        .iter()
-        .filter(|r| {
-            matches!(
-                r.outcome,
-                TestOutcome::Failed | TestOutcome::Panic | TestOutcome::Timeout
-            )
-        })
-        .count();
-
-    f64::from(u32::try_from(failures).unwrap_or(u32::MAX))
-        / f64::from(u32::try_from(runs.len()).unwrap_or(u32::MAX))
+    super::failure_rate(runs)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{TestEnvironment, TestRun};
-    use chrono::Utc;
+    use crate::test_helpers::test_run;
+    use crate::types::TestOutcome;
     use proptest::prelude::*;
     use rstest::rstest;
-    use std::path::PathBuf;
-    use std::time::Duration;
-    use uuid::Uuid;
-
-    fn make_run(name: &str, outcome: TestOutcome) -> TestRun {
-        TestRun {
-            id: Uuid::new_v4(),
-            test_name: name.to_string(),
-            test_path: PathBuf::new(),
-            outcome,
-            duration: Duration::from_millis(10),
-            timestamp: Utc::now(),
-            commit_hash: String::new(),
-            branch: String::new(),
-            environment: TestEnvironment {
-                os: "linux".to_string(),
-                rust_version: String::new(),
-                cpu_count: 1,
-                memory_gb: 0.0,
-                is_ci: false,
-                ci_provider: None,
-            },
-            retry_count: 0,
-            error_message: None,
-            stack_trace: None,
-        }
-    }
 
     fn make_runs_with_outcomes(name: &str, outcomes: &[TestOutcome]) -> Vec<TestRun> {
-        outcomes.iter().map(|o| make_run(name, *o)).collect()
+        outcomes.iter().map(|o| test_run(name, *o)).collect()
     }
 
     #[test]
@@ -142,16 +102,16 @@ mod tests {
 
             let mut runs = Vec::new();
             for _ in 0..recent_failures {
-                runs.push(make_run("test::prop", TestOutcome::Failed));
+                runs.push(test_run("test::prop", TestOutcome::Failed));
             }
             for _ in 0..recent_passes {
-                runs.push(make_run("test::prop", TestOutcome::Passed));
+                runs.push(test_run("test::prop", TestOutcome::Passed));
             }
             for _ in 0..prev_failures {
-                runs.push(make_run("test::prop", TestOutcome::Failed));
+                runs.push(test_run("test::prop", TestOutcome::Failed));
             }
             for _ in 0..prev_passes {
-                runs.push(make_run("test::prop", TestOutcome::Passed));
+                runs.push(test_run("test::prop", TestOutcome::Passed));
             }
 
             let total = runs.len();

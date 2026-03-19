@@ -16,7 +16,7 @@ impl Default for ExecutionConfig {
     fn default() -> Self {
         Self {
             concurrency: std::thread::available_parallelism()
-                .map(|n| n.get())
+                .map(std::num::NonZeroUsize::get)
                 .unwrap_or(4),
             timeout: Duration::from_secs(300),
             retries: 0,
@@ -35,15 +35,22 @@ pub struct TestResult {
     pub attempt: u32,
 }
 
-pub struct Executor {
-    config: ExecutionConfig,
+pub struct Executor<'a> {
+    config: &'a ExecutionConfig,
 }
 
-impl Executor {
-    pub fn new(config: ExecutionConfig) -> Self {
+impl<'a> Executor<'a> {
+    #[must_use]
+    pub const fn new(config: &'a ExecutionConfig) -> Self {
         Self { config }
     }
 
+    /// Runs a single test case, retrying according to the execution config.
+    ///
+    /// # Errors
+    ///
+    /// Returns `RunnerExecution` if the test binary cannot be spawned or
+    /// if no execution attempts are made.
     pub fn run_single(&self, test_case: &TestCase) -> Result<TestResult, NinetyNineError> {
         let mut last_result = None;
 
@@ -77,7 +84,7 @@ fn execute_test(test_case: &TestCase, timeout: Duration) -> Result<TestResult, N
     let expression = duct::cmd!(
         &test_case.binary_path,
         "--exact",
-        &test_case.name,
+        test_case.name.as_ref(),
         "--nocapture"
     )
     .unchecked()
@@ -104,7 +111,9 @@ fn execute_test(test_case: &TestCase, timeout: Duration) -> Result<TestResult, N
             }
             Ok(None) => {
                 if Instant::now() >= deadline {
-                    handle.kill().ok();
+                    if let Err(e) = handle.kill() {
+                        tracing::warn!("failed to kill test process: {e}");
+                    }
                     let duration = start.elapsed();
                     return Ok(TestResult {
                         test_case: test_case.clone(), // clone: result takes ownership for independent use
@@ -149,5 +158,53 @@ fn build_result(
         stdout,
         stderr,
         attempt: 1,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::runner::binary::BinaryKind;
+    use crate::runner::listing::TestKind;
+    use crate::types::TestName;
+    use rstest::rstest;
+    use std::os::unix::process::ExitStatusExt;
+    use std::path::PathBuf;
+    use std::process::{ExitStatus, Output};
+
+    fn mock_test_case() -> TestCase {
+        TestCase {
+            name: TestName::from("tests::example"),
+            binary_path: PathBuf::from("/tmp/test-bin"),
+            binary_name: "test-bin".to_string(),
+            package_name: "my-crate".to_string(),
+            binary_kind: BinaryKind::Test,
+            kind: TestKind::Test,
+        }
+    }
+
+    fn mock_output(status_code: i32, stdout: &str, stderr: &str) -> Output {
+        Output {
+            status: ExitStatus::from_raw(status_code << 8),
+            stdout: stdout.as_bytes().to_vec(),
+            stderr: stderr.as_bytes().to_vec(),
+        }
+    }
+
+    #[rstest]
+    #[case(0, "", "", TestOutcome::Passed)]
+    #[case(1, "", "", TestOutcome::Failed)]
+    #[case(1, "", "thread 'main' panicked at 'assertion'", TestOutcome::Panic)]
+    #[case(1, "thread 'main' panicked at 'boom'", "", TestOutcome::Panic)]
+    fn build_result_classifies_outcome(
+        #[case] exit_code: i32,
+        #[case] stdout: &str,
+        #[case] stderr: &str,
+        #[case] expected: TestOutcome,
+    ) {
+        let tc = mock_test_case();
+        let output = mock_output(exit_code, stdout, stderr);
+        let result = build_result(&tc, &output, Duration::from_millis(10));
+        assert_eq!(result.outcome, expected);
     }
 }

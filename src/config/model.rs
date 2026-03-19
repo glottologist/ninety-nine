@@ -10,7 +10,6 @@ pub struct Config {
     pub storage: StorageConfig,
     pub reporting: ReportingConfig,
     pub ci: CiConfig,
-    pub advanced: AdvancedConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,21 +20,18 @@ pub struct DetectionConfig {
     pub detection_methods: Vec<DetectionMethod>,
     pub auto_detect: bool,
     pub parallel_runs: u32,
+    pub duration_regression: Option<DurationRegressionConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DetectionMethod {
     Bayesian,
-    FrequencyBased,
-    PatternMatching,
 }
 
 impl std::fmt::Display for DetectionMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Bayesian => write!(f, "bayesian"),
-            Self::FrequencyBased => write!(f, "frequency-based"),
-            Self::PatternMatching => write!(f, "pattern-matching"),
         }
     }
 }
@@ -43,11 +39,8 @@ impl std::fmt::Display for DetectionMethod {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RetryConfig {
     pub unit_test_retries: u32,
-    pub integration_test_retries: u32,
-    pub e2e_test_retries: u32,
     pub backoff_strategy: BackoffStrategy,
     pub max_retry_time_secs: u64,
-    pub fail_fast: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,10 +75,29 @@ pub struct QuarantineThreshold {
     pub flakiness_score: f64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum StorageBackendType {
+    Sqlite,
+    Postgres,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SqliteConfig {
+    pub database_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PostgresConfig {
+    pub connection_string: String,
+    pub pool_size: u32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StorageConfig {
-    pub database_path: PathBuf,
+    pub backend: StorageBackendType,
     pub retention_days: u32,
+    pub sqlite: Option<SqliteConfig>,
+    pub postgres: Option<PostgresConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,16 +107,12 @@ pub struct ReportingConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConsoleOutputConfig {
-    pub verbose: bool,
-    pub color: bool,
-    pub progress_bar: bool,
     pub summary_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CiConfig {
     pub provider: Option<CiProvider>,
-    pub fail_on_flaky: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -131,31 +139,16 @@ impl std::fmt::Display for CiProvider {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdvancedConfig {
-    pub isolation_mode: IsolationMode,
-    pub resource_limits: ResourceLimits,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum IsolationMode {
-    None,
-    Process,
-}
-
-impl std::fmt::Display for IsolationMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::None => write!(f, "none"),
-            Self::Process => write!(f, "process"),
-        }
-    }
+pub struct DurationRegressionConfig {
+    pub enabled: bool,
+    pub min_history_runs: u32,
+    pub threshold: DurationThreshold,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResourceLimits {
-    pub max_memory_mb: Option<u64>,
-    pub max_cpu_percent: Option<f64>,
-    pub max_threads: Option<u32>,
+pub enum DurationThreshold {
+    Multiplier(f64),
+    StdDev(f64),
 }
 
 impl Default for Config {
@@ -165,21 +158,19 @@ impl Default for Config {
                 min_runs: 10,
                 confidence_threshold: 0.95,
                 window_size: 100,
-                detection_methods: vec![DetectionMethod::Bayesian, DetectionMethod::FrequencyBased],
+                detection_methods: vec![DetectionMethod::Bayesian],
                 auto_detect: true,
                 parallel_runs: 3,
+                duration_regression: None,
             },
             retry: RetryConfig {
                 unit_test_retries: 2,
-                integration_test_retries: 3,
-                e2e_test_retries: 1,
                 backoff_strategy: BackoffStrategy::Exponential {
                     base_ms: 100,
                     factor: 2.0,
                     max_ms: 5000,
                 },
                 max_retry_time_secs: 300,
-                fail_fast: false,
             },
             quarantine: QuarantineConfig {
                 enabled: true,
@@ -192,29 +183,19 @@ impl Default for Config {
                 max_quarantine_days: 30,
             },
             storage: StorageConfig {
-                database_path: default_database_path(),
+                backend: StorageBackendType::Sqlite,
                 retention_days: 90,
+                sqlite: Some(SqliteConfig {
+                    database_path: default_database_path(),
+                }),
+                postgres: None,
             },
             reporting: ReportingConfig {
                 console: ConsoleOutputConfig {
-                    verbose: false,
-                    color: true,
-                    progress_bar: true,
                     summary_only: false,
                 },
             },
-            ci: CiConfig {
-                provider: None,
-                fail_on_flaky: false,
-            },
-            advanced: AdvancedConfig {
-                isolation_mode: IsolationMode::None,
-                resource_limits: ResourceLimits {
-                    max_memory_mb: None,
-                    max_cpu_percent: None,
-                    max_threads: None,
-                },
-            },
+            ci: CiConfig { provider: None },
         }
     }
 }

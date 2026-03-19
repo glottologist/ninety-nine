@@ -2,6 +2,7 @@ use chrono::Timelike;
 
 use crate::types::{FailurePattern, PatternType, TestOutcome, TestRun};
 
+#[must_use]
 pub fn detect_patterns(runs: &[TestRun]) -> Vec<FailurePattern> {
     let failures: Vec<&TestRun> = runs
         .iter()
@@ -69,8 +70,7 @@ fn detect_time_of_day_pattern(failures: &[&TestRun]) -> Option<FailurePattern> {
         .iter()
         .enumerate()
         .max_by_key(|(_, c)| *c)
-        .map(|(h, _)| h)
-        .unwrap_or(0);
+        .map_or(0, |(h, _)| h);
 
     Some(FailurePattern {
         pattern_type: PatternType::TimeOfDay,
@@ -118,119 +118,41 @@ fn detect_environmental_pattern(runs: &[TestRun]) -> Option<FailurePattern> {
 }
 
 fn failure_rate_of(runs: &[&TestRun]) -> f64 {
-    if runs.is_empty() {
-        return 0.0;
-    }
-    let failures = runs
-        .iter()
-        .filter(|r| {
-            matches!(
-                r.outcome,
-                TestOutcome::Failed | TestOutcome::Panic | TestOutcome::Timeout
-            )
-        })
-        .count();
-
-    f64::from(u32::try_from(failures).unwrap_or(u32::MAX))
-        / f64::from(u32::try_from(runs.len()).unwrap_or(u32::MAX))
+    super::failure_rate(runs)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{TestEnvironment, TestRun};
-    use chrono::{TimeZone, Utc};
+    use crate::test_helpers::{test_run_at_hour, test_run_in_env};
+    use crate::types::TestRun;
     use proptest::prelude::*;
     use rstest::rstest;
-    use std::path::PathBuf;
-    use std::time::Duration;
-    use uuid::Uuid;
 
-    fn make_env(is_ci: bool) -> TestEnvironment {
-        TestEnvironment {
-            os: "linux".to_string(),
-            rust_version: String::new(),
-            cpu_count: 1,
-            memory_gb: 0.0,
-            is_ci,
-            ci_provider: if is_ci {
-                Some("GitHub Actions".to_string())
-            } else {
-                None
-            },
-        }
-    }
-
-    fn make_run_at_hour(name: &str, outcome: TestOutcome, hour: u32) -> TestRun {
-        TestRun {
-            id: Uuid::new_v4(),
-            test_name: name.to_string(),
-            test_path: PathBuf::new(),
-            outcome,
-            duration: Duration::from_millis(10),
-            timestamp: Utc.with_ymd_and_hms(2026, 3, 5, hour, 0, 0).unwrap(),
-            commit_hash: String::new(),
-            branch: String::new(),
-            environment: make_env(false),
-            retry_count: 0,
-            error_message: None,
-            stack_trace: None,
-        }
-    }
-
-    fn make_run_in_env(name: &str, outcome: TestOutcome, is_ci: bool) -> TestRun {
-        TestRun {
-            id: Uuid::new_v4(),
-            test_name: name.to_string(),
-            test_path: PathBuf::new(),
-            outcome,
-            duration: Duration::from_millis(10),
-            timestamp: Utc::now(),
-            commit_hash: String::new(),
-            branch: String::new(),
-            environment: make_env(is_ci),
-            retry_count: 0,
-            error_message: None,
-            stack_trace: None,
-        }
-    }
-
-    #[test]
-    fn no_failures_returns_empty() {
-        let runs: Vec<TestRun> = (0..10)
-            .map(|h| make_run_at_hour("test::a", TestOutcome::Passed, h))
+    #[rstest]
+    #[case(10, 0, &[], None)]
+    #[case(8, 0, &[(3, true), (15, true)], Some(PatternType::Random))]
+    #[case(20, 10, &[], Some(PatternType::TimeOfDay))]
+    fn pattern_detection_scenarios(
+        #[case] passed_count: u32,
+        #[case] concentrated_failures_at_h3: u32,
+        #[case] extra_failures: &[(u32, bool)],
+        #[case] expected: Option<PatternType>,
+    ) {
+        let mut runs: Vec<TestRun> = (0..passed_count)
+            .map(|h| test_run_at_hour("test::a", TestOutcome::Passed, h % 24))
             .collect();
-        assert!(detect_patterns(&runs).is_empty());
-    }
-
-    #[test]
-    fn few_random_failures_returns_random_pattern() {
-        let mut runs: Vec<TestRun> = (0..8)
-            .map(|h| make_run_at_hour("test::a", TestOutcome::Passed, h))
-            .collect();
-        runs.push(make_run_at_hour("test::a", TestOutcome::Failed, 3));
-        runs.push(make_run_at_hour("test::a", TestOutcome::Failed, 15));
-
+        for _ in 0..concentrated_failures_at_h3 {
+            runs.push(test_run_at_hour("test::a", TestOutcome::Failed, 3));
+        }
+        for &(hour, _) in extra_failures {
+            runs.push(test_run_at_hour("test::a", TestOutcome::Failed, hour));
+        }
         let patterns = detect_patterns(&runs);
-        assert_eq!(patterns.len(), 1);
-        assert_eq!(patterns[0].pattern_type, PatternType::Random);
-    }
-
-    #[test]
-    fn concentrated_failures_detected_as_time_of_day() {
-        let mut runs: Vec<TestRun> = (0..20)
-            .map(|i| make_run_at_hour("test::a", TestOutcome::Passed, i % 24))
-            .collect();
-
-        for _ in 0..10 {
-            runs.push(make_run_at_hour("test::a", TestOutcome::Failed, 3));
+        match expected {
+            None => assert!(patterns.is_empty()),
+            Some(pt) => assert!(patterns.iter().any(|p| p.pattern_type == pt)),
         }
-
-        let patterns = detect_patterns(&runs);
-        let tod = patterns
-            .iter()
-            .find(|p| p.pattern_type == PatternType::TimeOfDay);
-        assert!(tod.is_some());
     }
 
     #[rstest]
@@ -251,7 +173,7 @@ mod tests {
             } else {
                 TestOutcome::Passed
             };
-            runs.push(make_run_in_env("test::a", outcome, true));
+            runs.push(test_run_in_env("test::a", outcome, true));
         }
         for i in 0..20 {
             let fail = f64::from(i) / 20.0 < local_fail_rate;
@@ -260,7 +182,7 @@ mod tests {
             } else {
                 TestOutcome::Passed
             };
-            runs.push(make_run_in_env("test::a", outcome, false));
+            runs.push(test_run_in_env("test::a", outcome, false));
         }
 
         let patterns = detect_patterns(&runs);
@@ -278,10 +200,10 @@ mod tests {
         ) {
             let mut runs = Vec::new();
             for h in 0..num_passed {
-                runs.push(make_run_at_hour("test::prop", TestOutcome::Passed, h % 24));
+                runs.push(test_run_at_hour("test::prop", TestOutcome::Passed, h % 24));
             }
             for h in 0..num_failed {
-                runs.push(make_run_at_hour("test::prop", TestOutcome::Failed, h % 24));
+                runs.push(test_run_at_hour("test::prop", TestOutcome::Failed, h % 24));
             }
             let patterns = detect_patterns(&runs);
             for p in &patterns {

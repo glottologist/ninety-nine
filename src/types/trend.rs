@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::test_name::TestName;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum TrendDirection {
     Improving,
@@ -19,7 +21,7 @@ impl std::fmt::Display for TrendDirection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrendSummary {
-    pub test_name: String,
+    pub test_name: TestName,
     pub direction: TrendDirection,
     pub recent_score: f64,
     pub previous_score: f64,

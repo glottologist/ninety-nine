@@ -5,10 +5,12 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::test_name::TestName;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TestRun {
     pub id: Uuid,
-    pub test_name: String,
+    pub test_name: TestName,
     pub test_path: PathBuf,
     pub outcome: TestOutcome,
     pub duration: Duration,

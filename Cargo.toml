@@ -1,15 +1,17 @@
 [package]
 name = "cargo-ninety-nine"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Jason Ridgway-Taylor <jason@glottologist.co.uk>"]
 description = "A cargo plugin for finding and tracking flaky tests"
 keywords = ["cargo", "flaky", "tests"]
-categories = ["command-line-utilities", "development-tools"]
-documentation = "https://glottologist.github.io/ninety-nine"
+categories = ["command-line-utilities", "development-tools", "development-tools::testing"]
+documentation = "https://docs.rs/cargo-ninety-nine"
 homepage = "https://glottologist.github.io/ninety-nine/"
 repository = "https://github.com/glottologist/ninety-nine"
 readme = "README.md"
 edition = "2024"
+rust-version = "1.85"
+exclude = ["claude/", "docs/book/", ".github/", ".claude/", ".devbox/"]
 
 [[bin]]
 name = "cargo-ninety-nine"
@@ -21,23 +23,22 @@ serde_json = "1.0"
 toml = "0.8"
 thiserror = "2.0"
 tokio = { version = "1.40", features = ["full"] }
-futures = "0.3"
 statrs = "0.17"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 colored = "2.1"
-indicatif = "0.17"
 cargo_metadata = "0.19"
 duct = "0.13"
 rusqlite = { version = "0.33", features = ["bundled"] }
 which = "7.0"
 dirs = "6.0"
+regex = "1.11"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"] }
+deadpool-postgres = "0.14"
 
 [dev-dependencies]
 proptest = "1.6"
 rstest = "0.24"
-pretty_assertions = "1.4"
 tempfile = "3.14"
-insta = "1.41"

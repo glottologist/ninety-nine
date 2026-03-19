@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use crate::config::model::Config;
 
+#[must_use]
 pub fn generate_github_actions(config: &Config) -> String {
     let mut yaml = String::with_capacity(2048);
 
@@ -26,9 +27,9 @@ pub fn generate_github_actions(config: &Config) -> String {
     writeln!(yaml, "      - name: Install cargo-ninety-nine").ok();
     writeln!(yaml, "        run: cargo install cargo-ninety-nine").ok();
     writeln!(yaml).ok();
-    writeln!(yaml, "      - name: Detect flaky tests").ok();
+    writeln!(yaml, "      - name: Run flaky test detection").ok();
 
-    let mut run_cmd = String::from("cargo ninety-nine detect");
+    let mut run_cmd = String::from("cargo ninety-nine test");
     write!(run_cmd, " -n {}", config.detection.min_runs).ok();
     write!(
         run_cmd,
@@ -37,12 +38,8 @@ pub fn generate_github_actions(config: &Config) -> String {
     )
     .ok();
 
-    if config.ci.fail_on_flaky {
-        writeln!(yaml, "        run: {run_cmd}").ok();
-    } else {
-        writeln!(yaml, "        run: {run_cmd}").ok();
-        writeln!(yaml, "        continue-on-error: true").ok();
-    }
+    writeln!(yaml, "        run: {run_cmd}").ok();
+    writeln!(yaml, "        continue-on-error: true").ok();
 
     writeln!(yaml).ok();
     writeln!(yaml, "      - name: Export results").ok();
@@ -63,6 +60,7 @@ pub fn generate_github_actions(config: &Config) -> String {
     yaml
 }
 
+#[must_use]
 pub fn generate_gitlab_ci(config: &Config) -> String {
     let mut yaml = String::with_capacity(1024);
 
@@ -76,7 +74,7 @@ pub fn generate_gitlab_ci(config: &Config) -> String {
     writeln!(yaml, "    - cargo install cargo-nextest cargo-ninety-nine").ok();
     writeln!(yaml, "  script:").ok();
 
-    let mut run_cmd = String::from("    - cargo ninety-nine detect");
+    let mut run_cmd = String::from("    - cargo ninety-nine test");
     write!(run_cmd, " -n {}", config.detection.min_runs).ok();
     write!(
         run_cmd,
@@ -92,9 +90,7 @@ pub fn generate_gitlab_ci(config: &Config) -> String {
     )
     .ok();
 
-    if !config.ci.fail_on_flaky {
-        writeln!(yaml, "  allow_failure: true").ok();
-    }
+    writeln!(yaml, "  allow_failure: true").ok();
 
     writeln!(yaml, "  artifacts:").ok();
     writeln!(yaml, "    when: always").ok();
@@ -108,76 +104,61 @@ pub fn generate_gitlab_ci(config: &Config) -> String {
 mod tests {
     use super::*;
     use crate::config::model::Config;
+    use rstest::rstest;
 
-    #[test]
-    fn github_actions_contains_required_sections() {
-        let config = Config::default();
+    #[rstest]
+    #[case("name: Flaky Test Detection")]
+    #[case("cargo install cargo-ninety-nine")]
+    #[case("cargo ninety-nine test")]
+    #[case("actions/upload-artifact")]
+    #[case("continue-on-error: true")]
+    fn github_actions_default_config_contains(#[case] expected: &str) {
+        let yaml = generate_github_actions(&Config::default());
+        assert!(yaml.contains(expected), "missing: {expected}");
+    }
+
+    #[rstest]
+    #[case("flaky-test-detection:")]
+    #[case("cargo install cargo-nextest cargo-ninety-nine")]
+    #[case("cargo ninety-nine test")]
+    #[case("junit: flaky-results.xml")]
+    #[case("allow_failure: true")]
+    fn gitlab_ci_default_config_contains(#[case] expected: &str) {
+        let yaml = generate_gitlab_ci(&Config::default());
+        assert!(yaml.contains(expected), "missing: {expected}");
+    }
+
+    #[rstest]
+    #[case(25, 0.99, "-n 25", "--confidence 0.99")]
+    #[case(15, 0.9, "-n 15", "--confidence 0.9")]
+    fn github_actions_uses_config_values(
+        #[case] min_runs: u32,
+        #[case] confidence: f64,
+        #[case] expected_runs: &str,
+        #[case] expected_conf: &str,
+    ) {
+        let mut config = Config::default();
+        config.detection.min_runs = min_runs;
+        config.detection.confidence_threshold = confidence;
         let yaml = generate_github_actions(&config);
-        assert!(yaml.contains("name: Flaky Test Detection"));
-        assert!(yaml.contains("cargo install cargo-ninety-nine"));
-        assert!(yaml.contains("cargo ninety-nine detect"));
-        assert!(yaml.contains("actions/upload-artifact"));
+        assert!(yaml.contains(expected_runs));
+        assert!(yaml.contains(expected_conf));
     }
 
-    #[test]
-    fn github_actions_fail_on_flaky_omits_continue_on_error() {
+    #[rstest]
+    #[case(15, 0.9, "-n 15", "--confidence 0.9")]
+    #[case(25, 0.99, "-n 25", "--confidence 0.99")]
+    fn gitlab_ci_uses_config_values(
+        #[case] min_runs: u32,
+        #[case] confidence: f64,
+        #[case] expected_runs: &str,
+        #[case] expected_conf: &str,
+    ) {
         let mut config = Config::default();
-        config.ci.fail_on_flaky = true;
-        let yaml = generate_github_actions(&config);
-        assert!(!yaml.contains("continue-on-error"));
-    }
-
-    #[test]
-    fn github_actions_no_fail_has_continue_on_error() {
-        let mut config = Config::default();
-        config.ci.fail_on_flaky = false;
-        let yaml = generate_github_actions(&config);
-        assert!(yaml.contains("continue-on-error: true"));
-    }
-
-    #[test]
-    fn gitlab_ci_contains_required_sections() {
-        let config = Config::default();
+        config.detection.min_runs = min_runs;
+        config.detection.confidence_threshold = confidence;
         let yaml = generate_gitlab_ci(&config);
-        assert!(yaml.contains("flaky-test-detection:"));
-        assert!(yaml.contains("cargo install cargo-nextest cargo-ninety-nine"));
-        assert!(yaml.contains("cargo ninety-nine detect"));
-        assert!(yaml.contains("junit: flaky-results.xml"));
-    }
-
-    #[test]
-    fn gitlab_ci_fail_on_flaky_omits_allow_failure() {
-        let mut config = Config::default();
-        config.ci.fail_on_flaky = true;
-        let yaml = generate_gitlab_ci(&config);
-        assert!(!yaml.contains("allow_failure"));
-    }
-
-    #[test]
-    fn gitlab_ci_no_fail_has_allow_failure() {
-        let mut config = Config::default();
-        config.ci.fail_on_flaky = false;
-        let yaml = generate_gitlab_ci(&config);
-        assert!(yaml.contains("allow_failure: true"));
-    }
-
-    #[test]
-    fn github_actions_uses_config_values() {
-        let mut config = Config::default();
-        config.detection.min_runs = 25;
-        config.detection.confidence_threshold = 0.99;
-        let yaml = generate_github_actions(&config);
-        assert!(yaml.contains("-n 25"));
-        assert!(yaml.contains("--confidence 0.99"));
-    }
-
-    #[test]
-    fn gitlab_ci_uses_config_values() {
-        let mut config = Config::default();
-        config.detection.min_runs = 15;
-        config.detection.confidence_threshold = 0.9;
-        let yaml = generate_gitlab_ci(&config);
-        assert!(yaml.contains("-n 15"));
-        assert!(yaml.contains("--confidence 0.9"));
+        assert!(yaml.contains(expected_runs));
+        assert!(yaml.contains(expected_conf));
     }
 }

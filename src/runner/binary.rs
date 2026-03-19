@@ -4,7 +4,7 @@ use cargo_metadata::{Message, TargetKind};
 
 use crate::error::NinetyNineError;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BinaryKind {
     Lib,
     Bin,
@@ -20,6 +20,12 @@ pub struct TestBinary {
     pub kind: BinaryKind,
 }
 
+/// Discovers test binaries in the given project by running `cargo test --no-run`.
+///
+/// # Errors
+///
+/// Returns `BinaryDiscovery` if cargo cannot be spawned, exits with a failure
+/// status, or produces unparseable output.
 pub fn discover_test_binaries(project_root: &Path) -> Result<Vec<TestBinary>, NinetyNineError> {
     let output = std::process::Command::new("cargo")
         .args([

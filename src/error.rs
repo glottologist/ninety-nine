@@ -33,6 +33,12 @@ pub enum NinetyNineError {
     #[error("test listing failed for {binary}: {message}")]
     TestListing { binary: PathBuf, message: String },
 
+    #[error("test not found: {name}")]
+    TestNotFound { name: String },
+
+    #[error("filter parse error: {message}")]
+    FilterParse { message: String },
+
     #[error("io error: {source}")]
     Io {
         #[from]
@@ -50,4 +56,13 @@ pub enum NinetyNineError {
         #[from]
         source: rusqlite::Error,
     },
+
+    #[error("postgres storage error: {source}")]
+    PostgresStorage {
+        #[from]
+        source: tokio_postgres::Error,
+    },
+
+    #[error("postgres pool error: {message}")]
+    PostgresPool { message: String },
 }

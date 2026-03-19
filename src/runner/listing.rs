@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use crate::error::NinetyNineError;
-use crate::runner::binary::TestBinary;
+use crate::runner::binary::{BinaryKind, TestBinary};
+use crate::types::TestName;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TestKind {
@@ -11,12 +12,19 @@ pub enum TestKind {
 
 #[derive(Debug, Clone)]
 pub struct TestCase {
-    pub name: String,
+    pub name: TestName,
     pub binary_path: PathBuf,
     pub binary_name: String,
+    pub package_name: String,
+    pub binary_kind: BinaryKind,
     pub kind: TestKind,
 }
 
+/// Lists all tests in the given binary by running it with `--list --format terse`.
+///
+/// # Errors
+///
+/// Returns `TestListing` if the binary cannot be executed or exits with failure.
 pub fn list_tests(binary: &TestBinary) -> Result<Vec<TestCase>, NinetyNineError> {
     let output = std::process::Command::new(&binary.path)
         .args(["--list", "--format", "terse"])
@@ -34,10 +42,10 @@ pub fn list_tests(binary: &TestBinary) -> Result<Vec<TestCase>, NinetyNineError>
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    parse_test_listing(&stdout, binary)
+    Ok(parse_test_listing(&stdout, binary))
 }
 
-fn parse_test_listing(output: &str, binary: &TestBinary) -> Result<Vec<TestCase>, NinetyNineError> {
+fn parse_test_listing(output: &str, binary: &TestBinary) -> Vec<TestCase> {
     let mut cases = Vec::new();
 
     for line in output.lines() {
@@ -48,15 +56,17 @@ fn parse_test_listing(output: &str, binary: &TestBinary) -> Result<Vec<TestCase>
 
         if let Some((name, kind)) = parse_listing_line(trimmed) {
             cases.push(TestCase {
-                name,
+                name: TestName::from(name),
                 binary_path: binary.path.clone(), // clone: each TestCase owns its path for independent execution
                 binary_name: binary.binary_name.clone(), // clone: each TestCase owns its binary name
+                package_name: binary.package_name.clone(), // clone: each TestCase owns its package name
+                binary_kind: binary.kind,
                 kind,
             });
         }
     }
 
-    Ok(cases)
+    cases
 }
 
 fn parse_listing_line(line: &str) -> Option<(String, TestKind)> {
@@ -75,6 +85,12 @@ fn parse_listing_line(line: &str) -> Option<(String, TestKind)> {
     None
 }
 
+/// Lists tests from multiple binaries in parallel, limited by concurrency.
+///
+/// # Errors
+///
+/// Returns `TestListing` if any binary fails to list its tests, or if a
+/// spawned task panics.
 pub async fn list_tests_parallel(
     binaries: &[TestBinary],
     concurrency: usize,

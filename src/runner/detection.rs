@@ -15,6 +15,7 @@ impl std::fmt::Display for AvailableRunner {
     }
 }
 
+#[must_use]
 pub fn detect_available_runner() -> Option<AvailableRunner> {
     if is_nextest_available() {
         Some(AvailableRunner::Nextest)
@@ -25,10 +26,12 @@ pub fn detect_available_runner() -> Option<AvailableRunner> {
     }
 }
 
+#[must_use]
 pub fn is_nextest_available() -> bool {
     which("cargo-nextest").is_ok()
 }
 
+#[must_use]
 pub fn is_cargo_available() -> bool {
     which("cargo").is_ok()
 }

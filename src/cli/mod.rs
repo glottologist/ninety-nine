@@ -51,20 +51,21 @@ pub enum ExportFormat {
     Junit,
     Html,
     Csv,
+    Json,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    #[command(about = "Detect flaky tests by running them multiple times")]
-    Detect {
-        #[arg(help = "Test filter pattern")]
-        filter: Option<String>,
+    #[command(about = "Run tests and detect flakiness")]
+    Test {
+        #[arg(help = "Filter expression (DSL or test name pattern)")]
+        filter_expr: Option<String>,
 
-        #[arg(long, short = 'n', default_value_t = 10)]
-        iterations: u32,
+        #[arg(long, short = 'n', help = "Number of iterations per test")]
+        iterations: Option<u32>,
 
-        #[arg(long, default_value_t = 0.95)]
-        confidence: f64,
+        #[arg(long, help = "Confidence threshold for flakiness detection")]
+        confidence: Option<f64>,
     },
 
     #[command(about = "Initialize configuration file")]

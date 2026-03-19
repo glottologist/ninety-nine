@@ -1,49 +1,70 @@
 use std::path::Path;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use clap::Parser;
-use indicatif::{ProgressBar, ProgressStyle};
 use tracing_subscriber::EnvFilter;
 
+use cargo_ninety_nine::analysis::duration::{DurationRegression, detect_duration_regressions};
 use cargo_ninety_nine::analysis::pattern::detect_patterns;
 use cargo_ninety_nine::analysis::trend::calculate_trend;
 use cargo_ninety_nine::ci::{generate_github_actions, generate_gitlab_ci};
-use cargo_ninety_nine::cli::export::{export_csv, export_html, export_junit};
+use cargo_ninety_nine::cli::export::{export_csv, export_html, export_json, export_junit};
 use cargo_ninety_nine::cli::output::{
-    print_flakiness_report, print_quarantine_list, print_session_report, print_summary,
-    print_test_detail,
+    print_duration_regression_summary, print_duration_warning, print_flakiness_report,
+    print_quarantine_list, print_run_header, print_run_summary, print_session_report,
+    print_summary, print_test_detail, print_test_result_line,
 };
 use cargo_ninety_nine::cli::{
     CargoSubcommand, CiCommand, CiTarget, Cli, Commands, ExportFormat, OutputFormat,
     QuarantineCommand,
 };
 use cargo_ninety_nine::config;
-use cargo_ninety_nine::config::model::{BackoffStrategy, Config};
+use cargo_ninety_nine::config::model::Config;
 use cargo_ninety_nine::detector::BayesianDetector;
 use cargo_ninety_nine::error::NinetyNineError;
+use cargo_ninety_nine::filter;
+use cargo_ninety_nine::filter::eval::{TestMetadata, eval};
 use cargo_ninety_nine::runner::executor::ExecutionConfig;
-use cargo_ninety_nine::runner::{RunnerBackend, detect_available_runner};
-use cargo_ninety_nine::storage::{SqliteStorage, Storage};
-use cargo_ninety_nine::types::{FlakinessCategory, RunSession, TestEnvironment, TestRun};
+use cargo_ninety_nine::runner::listing::TestCase;
+use cargo_ninety_nine::runner::{RunnerBackend, detect_available_runner, execute_iterations};
+use cargo_ninety_nine::storage::{Storage, StorageBackend, open_storage};
+use cargo_ninety_nine::types::{
+    ActiveSession, FlakinessScore, TestEnvironment, TestOutcome, TestRun,
+};
 
-struct DetectOpts<'a> {
-    filter: Option<&'a str>,
+struct TestOpts<'a> {
+    filter_expr: Option<&'a str>,
     iterations: u32,
     confidence: f64,
     output_format: OutputFormat,
-    verbose: bool,
+}
+
+struct SuiteResults {
+    scores: Vec<FlakinessScore>,
+    all_runs: Vec<TestRun>,
+    pass_count: usize,
+    flaky_count: usize,
+    fail_count: usize,
+    duration_regressions: Vec<DurationRegression>,
 }
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
-
     let cli = Cli::parse();
     let CargoSubcommand::NinetyNine(args) = cli.command;
 
-    if let Err(e) = run(&args.project_dir, args.command, args.output, args.verbose).await {
+    let filter = if args.verbose {
+        EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| EnvFilter::new("cargo_ninety_nine=debug"))
+    } else {
+        EnvFilter::try_from_default_env()
+            .unwrap_or_else(|_| EnvFilter::new("cargo_ninety_nine=warn"))
+    };
+
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+
+    if let Err(e) = run(&args.project_dir, args.command, args.output).await {
         eprintln!("Error: {e}");
         std::process::exit(1);
     }
@@ -53,136 +74,242 @@ async fn run(
     project_dir: &Path,
     command: Commands,
     output_format: OutputFormat,
-    verbose: bool,
 ) -> Result<(), NinetyNineError> {
     let config = config::load_config(project_dir)?;
 
     match command {
-        Commands::Detect {
-            filter,
+        Commands::Test {
+            filter_expr,
             iterations,
             confidence,
         } => {
-            let storage = SqliteStorage::open(&config.storage.database_path)?;
-            let opts = DetectOpts {
-                filter: filter.as_deref(),
-                iterations,
-                confidence,
+            let storage = open_storage(&config).await?;
+            let opts = TestOpts {
+                filter_expr: filter_expr.as_deref(),
+                iterations: iterations.unwrap_or(config.detection.min_runs),
+                confidence: confidence.unwrap_or(config.detection.confidence_threshold),
                 output_format,
-                verbose,
             };
-            run_detect(project_dir, &config, &storage, &opts).await
+            run_test(project_dir, &config, &storage, &opts).await
         }
         Commands::Init { force } => run_init(project_dir, force),
         Commands::History { filter, limit } => {
-            let storage = SqliteStorage::open(&config.storage.database_path)?;
-            run_history(&storage, filter.as_deref(), limit, output_format)
+            let storage = open_storage(&config).await?;
+            run_history(&storage, filter.as_deref(), limit, output_format).await
         }
         Commands::Status { test_name } => {
-            let storage = SqliteStorage::open(&config.storage.database_path)?;
-            run_status(&storage, &config, test_name.as_deref(), output_format)
+            let storage = open_storage(&config).await?;
+            run_status(&storage, &config, test_name.as_deref(), output_format).await
         }
         Commands::Export { format, path } => {
-            let storage = SqliteStorage::open(&config.storage.database_path)?;
-            run_export(&storage, format, &path)
+            let storage = open_storage(&config).await?;
+            run_export(&storage, format, &path).await
         }
         Commands::Quarantine(subcmd) => {
-            let storage = SqliteStorage::open(&config.storage.database_path)?;
-            run_quarantine(&storage, subcmd, output_format)
+            let storage = open_storage(&config).await?;
+            run_quarantine(&storage, subcmd, output_format).await
         }
         Commands::Ci(subcmd) => run_ci(&config, subcmd),
     }
 }
 
-async fn run_detect(
+async fn run_test(
     project_dir: &Path,
     config: &Config,
-    storage: &SqliteStorage,
-    opts: &DetectOpts<'_>,
+    storage: &StorageBackend,
+    opts: &TestOpts<'_>,
 ) -> Result<(), NinetyNineError> {
     detect_available_runner().ok_or(NinetyNineError::NoRunnerAvailable)?;
 
     let backend = build_backend(config, project_dir);
-    let tests = backend.discover_tests(opts.filter.unwrap_or("")).await?;
-
-    if tests.is_empty() {
-        println!("No tests found matching filter.");
+    let Some(tests) = discover_and_filter_tests(&backend, storage, opts).await? else {
         return Ok(());
-    }
-
-    tracing::info!(count = tests.len(), "discovered tests");
+    };
 
     let (commit_hash, branch) = detect_git_info();
-    let session = RunSession::start(&commit_hash, &branch);
-    storage.store_session(&session)?;
+    let session = ActiveSession::start(&commit_hash, &branch);
+    storage.store_session(&session.to_run_session()).await?;
 
-    let environment = detect_environment();
     let detector = BayesianDetector::new(opts.confidence);
-    let show_bar = config.reporting.console.progress_bar && !opts.verbose;
-    let pb = create_progress_bar(tests.len(), show_bar);
-    let mut scores = Vec::with_capacity(tests.len());
-    let mut all_runs: Vec<TestRun> = Vec::new();
+    let mut results =
+        execute_test_suite(&backend, storage, &tests, opts, &detector, &session).await?;
 
-    for test_case in &tests {
-        pb.set_message(test_case.name.clone()); // clone: progress bar takes ownership for display
-        let runs = backend
-            .run_test_repeatedly(test_case, opts.iterations, &environment)
-            .await?;
+    print_run_summary(
+        tests.len(),
+        results.pass_count,
+        results.flaky_count,
+        results.fail_count,
+    );
+    print_duration_regression_summary(results.duration_regressions.len());
 
-        for run in &runs {
-            storage.store_test_run(run, &session.id)?;
-        }
+    finalize_session(storage, session, &detector, &results.scores, config).await?;
+    print_results(&mut results, config, &detector, opts.output_format);
+    auto_quarantine(config, storage, &detector, &results.scores).await
+}
 
-        let score = detector.calculate_flakiness_score(&test_case.name, &runs);
-        storage.store_flakiness_score(&score)?;
-
-        if opts.verbose {
-            let category = FlakinessCategory::from_score(score.probability_flaky);
-            println!(
-                "  [{category}] {} — {:.1}% flaky",
-                test_case.name,
-                score.probability_flaky * 100.0
-            );
-        }
-
-        all_runs.extend(runs);
-        scores.push(score);
-        pb.inc(1);
-    }
-
-    pb.finish_and_clear();
-    finalize_session(
-        storage,
-        &session,
-        &detector,
-        &scores,
-        config.storage.retention_days,
-    )?;
-
-    scores.sort_by(|a, b| {
+fn print_results(
+    results: &mut SuiteResults,
+    config: &Config,
+    detector: &BayesianDetector,
+    output_format: OutputFormat,
+) {
+    results.scores.sort_by(|a, b| {
         b.probability_flaky
             .partial_cmp(&a.probability_flaky)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     if config.reporting.console.summary_only {
-        print_summary(&scores, &detector);
+        print_summary(&results.scores, detector);
     } else {
-        print_flakiness_report(&scores, opts.output_format);
-        print_analysis(&all_runs, config);
+        print_flakiness_report(&results.scores, output_format);
+        print_analysis(&results.all_runs, config);
+    }
+}
+
+/// Discovers tests and applies filter expression, returning `None` if no tests remain.
+async fn discover_and_filter_tests(
+    backend: &RunnerBackend,
+    storage: &StorageBackend,
+    opts: &TestOpts<'_>,
+) -> Result<Option<Vec<TestCase>>, NinetyNineError> {
+    let mut tests = backend.discover_tests("").await?;
+
+    if tests.is_empty() {
+        println!("No tests found.");
+        return Ok(None);
     }
 
-    auto_quarantine(config, storage, &detector, &scores)?;
+    let eval_ctx = filter::build_eval_context(storage, opts.confidence).await?;
 
-    if config.ci.fail_on_flaky {
-        let flaky_found = scores.iter().any(|s| detector.is_flaky(s));
-        if flaky_found {
-            return Err(NinetyNineError::InvalidConfig {
-                message: "flaky tests detected (fail_on_flaky is enabled)".to_string(),
-            });
+    if let Some(expr_str) = opts.filter_expr {
+        let expr = filter::compile_filter(expr_str)?;
+        tests.retain(|tc| {
+            let meta = TestMetadata {
+                name: &tc.name,
+                package_name: &tc.package_name,
+                binary_name: &tc.binary_name,
+                kind: &tc.binary_kind,
+            };
+            eval(&expr, &meta, &eval_ctx)
+        });
+    }
+
+    if tests.is_empty() {
+        println!("No tests matching filter.");
+        return Ok(None);
+    }
+
+    tracing::info!(count = tests.len(), "discovered tests");
+    Ok(Some(tests))
+}
+
+async fn execute_test_suite(
+    backend: &RunnerBackend,
+    storage: &StorageBackend,
+    tests: &[TestCase],
+    opts: &TestOpts<'_>,
+    detector: &BayesianDetector,
+    session: &ActiveSession,
+) -> Result<SuiteResults, NinetyNineError> {
+    let environment = Arc::new(detect_environment());
+    let config = Arc::new(backend.execution_config().clone()); // clone: shared across spawn_blocking tasks
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(config.concurrency));
+    let iterations = opts.iterations;
+
+    print_run_header(tests.len(), iterations);
+
+    let mut handles = Vec::with_capacity(tests.len());
+    for test_case in tests {
+        let permit = Arc::clone(&semaphore).acquire_owned().await.map_err(|e| {
+            NinetyNineError::RunnerExecution {
+                message: format!("semaphore closed: {e}"),
+            }
+        })?;
+        let tc = test_case.clone(); // clone: moved into spawn_blocking
+        let cfg = Arc::clone(&config);
+        let env = Arc::clone(&environment);
+
+        let handle = tokio::task::spawn_blocking(move || {
+            let _permit = permit;
+            let start = Instant::now();
+            let runs = execute_iterations(&tc, iterations, &cfg, &env)?;
+            let elapsed = start.elapsed();
+            Ok::<_, NinetyNineError>((tc, runs, elapsed))
+        });
+        handles.push(handle);
+    }
+
+    let mut scores = Vec::with_capacity(tests.len());
+    let mut all_runs = Vec::new();
+    let mut pass_count = 0usize;
+    let mut flaky_count = 0usize;
+    let mut fail_count = 0usize;
+    let mut duration_regressions = Vec::new();
+
+    for handle in handles {
+        let (test_case, runs, elapsed) =
+            handle
+                .await
+                .map_err(|e| NinetyNineError::RunnerExecution {
+                    message: format!("task join error: {e}"),
+                })??;
+
+        let passed = u32::try_from(
+            runs.iter()
+                .filter(|r| r.outcome == TestOutcome::Passed)
+                .count(),
+        )
+        .unwrap_or(u32::MAX);
+
+        print_test_result_line(&test_case.name, passed, iterations, elapsed);
+
+        if passed == iterations {
+            pass_count += 1;
+        } else if passed == 0 {
+            fail_count += 1;
+        } else {
+            flaky_count += 1;
         }
+
+        for run in &runs {
+            storage.store_test_run(run, session.id()).await?;
+        }
+
+        let score = detector.calculate_flakiness_score(&test_case.name, &runs);
+        storage.store_flakiness_score(&score).await?;
+
+        check_duration_regression(storage, &test_case.name, &mut duration_regressions).await?;
+
+        all_runs.extend(runs);
+        scores.push(score);
     }
 
+    Ok(SuiteResults {
+        scores,
+        all_runs,
+        pass_count,
+        flaky_count,
+        fail_count,
+        duration_regressions,
+    })
+}
+
+async fn check_duration_regression(
+    storage: &StorageBackend,
+    test_name: &str,
+    regressions: &mut Vec<DurationRegression>,
+) -> Result<(), NinetyNineError> {
+    let historical_runs = storage.get_test_runs(test_name, 50).await?;
+    if let Some(regression) = detect_duration_regressions(test_name, &historical_runs, 10, 2.0) {
+        print_duration_warning(
+            test_name,
+            regression.current_ms,
+            regression.mean_ms,
+            regression.deviation_factor,
+        );
+        regressions.push(regression);
+    }
     Ok(())
 }
 
@@ -200,7 +327,7 @@ fn print_analysis(runs: &[TestRun], config: &Config) {
         }
     }
 
-    let mut test_names: Vec<&str> = runs.iter().map(|r| r.test_name.as_str()).collect();
+    let mut test_names: Vec<&str> = runs.iter().map(|r| r.test_name.as_ref()).collect();
     test_names.sort_unstable();
     test_names.dedup();
 
@@ -227,11 +354,11 @@ fn print_analysis(runs: &[TestRun], config: &Config) {
     }
 }
 
-fn auto_quarantine(
+async fn auto_quarantine(
     config: &Config,
-    storage: &SqliteStorage,
+    storage: &StorageBackend,
     detector: &BayesianDetector,
-    scores: &[cargo_ninety_nine::types::FlakinessScore],
+    scores: &[FlakinessScore],
 ) -> Result<(), NinetyNineError> {
     if !config.quarantine.enabled || !config.quarantine.auto_quarantine {
         return Ok(());
@@ -248,14 +375,16 @@ fn auto_quarantine(
         let exceeds_rate = score.fail_rate >= threshold.failure_rate;
 
         if (exceeds_score || exceeds_failures || exceeds_rate)
-            && !storage.is_quarantined(&score.test_name)?
+            && !storage.is_quarantined(&score.test_name).await?
         {
-            storage.quarantine_test(
-                &score.test_name,
-                "auto-quarantined: exceeded flakiness threshold",
-                score.probability_flaky,
-                true,
-            )?;
+            storage
+                .quarantine_test(
+                    &score.test_name,
+                    "auto-quarantined: exceeded flakiness threshold",
+                    score.probability_flaky,
+                    true,
+                )
+                .await?;
             println!("Auto-quarantined: {}", score.test_name);
         }
     }
@@ -263,20 +392,24 @@ fn auto_quarantine(
     Ok(())
 }
 
-fn finalize_session(
-    storage: &SqliteStorage,
-    session: &RunSession,
+async fn finalize_session(
+    storage: &StorageBackend,
+    session: ActiveSession,
     detector: &BayesianDetector,
-    scores: &[cargo_ninety_nine::types::FlakinessScore],
-    retention_days: u32,
+    scores: &[FlakinessScore],
+    config: &Config,
 ) -> Result<(), NinetyNineError> {
     let test_count = u32::try_from(scores.len()).unwrap_or(u32::MAX);
     let flaky_count =
         u32::try_from(scores.iter().filter(|s| detector.is_flaky(s)).count()).unwrap_or(u32::MAX);
 
-    storage.finish_session(&session.id, test_count, flaky_count)?;
+    storage
+        .finish_session(session.id(), test_count, flaky_count)
+        .await?;
 
-    let purged = storage.purge_older_than(retention_days)?;
+    let purged = storage
+        .purge_older_than(config.storage.retention_days)
+        .await?;
     if purged > 0 {
         tracing::info!(purged, "purged old test runs");
     }
@@ -284,13 +417,13 @@ fn finalize_session(
     Ok(())
 }
 
-fn run_history(
-    storage: &SqliteStorage,
+async fn run_history(
+    storage: &StorageBackend,
     filter: Option<&str>,
     limit: u32,
     output_format: OutputFormat,
 ) -> Result<(), NinetyNineError> {
-    let sessions = storage.get_recent_sessions(limit)?;
+    let sessions = storage.get_recent_sessions(limit).await?;
 
     let sessions = match filter {
         Some(f) => sessions
@@ -304,45 +437,45 @@ fn run_history(
     Ok(())
 }
 
-fn run_status(
-    storage: &SqliteStorage,
+async fn run_status(
+    storage: &StorageBackend,
     config: &Config,
     test_name: Option<&str>,
     output_format: OutputFormat,
 ) -> Result<(), NinetyNineError> {
-    match test_name {
-        Some(name) => {
-            let score = storage
-                .get_score(name)?
-                .ok_or_else(|| NinetyNineError::InvalidConfig {
-                    message: format!("no data for test: {name}"),
+    if let Some(name) = test_name {
+        let score =
+            storage
+                .get_score(name)
+                .await?
+                .ok_or_else(|| NinetyNineError::TestNotFound {
+                    name: name.to_string(),
                 })?;
-            let runs = storage.get_test_runs(name, 20)?;
+        let runs = storage.get_test_runs(name, 20).await?;
 
-            let trend = calculate_trend(name, &runs, config.detection.window_size);
-            let patterns = detect_patterns(&runs);
+        let trend = calculate_trend(name, &runs, config.detection.window_size);
+        let patterns = detect_patterns(&runs);
 
-            print_test_detail(&score, &runs, trend.as_ref(), &patterns, output_format);
-        }
-        None => {
-            let scores = storage.get_all_scores()?;
-            print_flakiness_report(&scores, output_format);
-        }
+        print_test_detail(&score, &runs, trend.as_ref(), &patterns, output_format);
+    } else {
+        let scores = storage.get_all_scores().await?;
+        print_flakiness_report(&scores, output_format);
     }
     Ok(())
 }
 
-fn run_export(
-    storage: &SqliteStorage,
+async fn run_export(
+    storage: &StorageBackend,
     format: ExportFormat,
     path: &Path,
 ) -> Result<(), NinetyNineError> {
-    let scores = storage.get_all_scores()?;
+    let scores = storage.get_all_scores().await?;
 
     match format {
         ExportFormat::Junit => export_junit(&scores, path)?,
         ExportFormat::Html => export_html(&scores, path)?,
         ExportFormat::Csv => export_csv(&scores, path)?,
+        ExportFormat::Json => export_json(&scores, path)?,
     }
 
     println!(
@@ -353,26 +486,28 @@ fn run_export(
     Ok(())
 }
 
-fn run_quarantine(
-    storage: &SqliteStorage,
+async fn run_quarantine(
+    storage: &StorageBackend,
     command: QuarantineCommand,
     output_format: OutputFormat,
 ) -> Result<(), NinetyNineError> {
     match command {
         QuarantineCommand::List => {
-            let entries = storage.get_quarantined_tests()?;
+            let entries = storage.get_quarantined_tests().await?;
             print_quarantine_list(&entries, output_format);
         }
         QuarantineCommand::Add { test_name, reason } => {
             let score = storage
-                .get_score(&test_name)?
-                .map(|s| s.probability_flaky)
-                .unwrap_or(0.0);
-            storage.quarantine_test(&test_name, &reason, score, false)?;
+                .get_score(&test_name)
+                .await?
+                .map_or(0.0, |s| s.probability_flaky);
+            storage
+                .quarantine_test(&test_name, &reason, score, false)
+                .await?;
             println!("Quarantined: {test_name}");
         }
         QuarantineCommand::Remove { test_name } => {
-            storage.unquarantine_test(&test_name)?;
+            storage.unquarantine_test(&test_name).await?;
             println!("Unquarantined: {test_name}");
         }
     }
@@ -404,31 +539,9 @@ fn build_backend(config: &Config, project_dir: &Path) -> RunnerBackend {
         concurrency: usize::try_from(config.detection.parallel_runs).unwrap_or(4),
         timeout: Duration::from_secs(config.retry.max_retry_time_secs),
         retries: config.retry.unit_test_retries,
-        retry_delay: backoff_base_delay(&config.retry.backoff_strategy),
+        retry_delay: config::backoff_base_delay(&config.retry.backoff_strategy),
     };
     RunnerBackend::native(project_dir, exec_config)
-}
-
-fn backoff_base_delay(strategy: &BackoffStrategy) -> Duration {
-    match strategy {
-        BackoffStrategy::None => Duration::ZERO,
-        BackoffStrategy::Linear { delay_ms } => Duration::from_millis(*delay_ms),
-        BackoffStrategy::Exponential { base_ms, .. } => Duration::from_millis(*base_ms),
-        BackoffStrategy::Fibonacci { start_ms, .. } => Duration::from_millis(*start_ms),
-    }
-}
-
-fn create_progress_bar(len: usize, enabled: bool) -> ProgressBar {
-    if !enabled {
-        return ProgressBar::hidden();
-    }
-    let pb = ProgressBar::new(u64::try_from(len).unwrap_or(0));
-    let style =
-        ProgressStyle::with_template("{spinner:.green} [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-            .unwrap_or_else(|_| ProgressStyle::default_bar())
-            .progress_chars("=>-");
-    pb.set_style(style);
-    pb
 }
 
 fn run_init(project_dir: &Path, force: bool) -> Result<(), NinetyNineError> {

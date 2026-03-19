@@ -5,6 +5,11 @@ use std::path::Path;
 use crate::error::NinetyNineError;
 use crate::types::{FlakinessCategory, FlakinessScore};
 
+/// Exports scores as `JUnit` XML.
+///
+/// # Errors
+///
+/// Returns `Io` if the file cannot be written.
 pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
     let mut xml = String::with_capacity(4096);
     writeln!(xml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>").ok();
@@ -58,6 +63,11 @@ pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), Ninety
     write_file(path, xml.as_bytes())
 }
 
+/// Exports scores as CSV.
+///
+/// # Errors
+///
+/// Returns `Io` if the file cannot be written.
 pub fn export_csv(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
     let mut out = String::with_capacity(2048);
     writeln!(
@@ -85,95 +95,127 @@ pub fn export_csv(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNi
     write_file(path, out.as_bytes())
 }
 
+/// Exports scores as HTML.
+///
+/// # Errors
+///
+/// Returns `Io` if the file cannot be written.
 pub fn export_html(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
     let mut html = String::with_capacity(8192);
-    writeln!(html, "<!DOCTYPE html>").ok();
-    writeln!(html, "<html lang=\"en\"><head>").ok();
-    writeln!(html, "<meta charset=\"UTF-8\">").ok();
-    writeln!(html, "<title>Flaky Test Report — cargo ninety-nine</title>").ok();
-    writeln!(html, "<style>").ok();
-    writeln!(
-        html,
-        "body {{ font-family: system-ui, sans-serif; margin: 2rem; background: #fafafa; }}"
-    )
-    .ok();
-    writeln!(
-        html,
-        "h1 {{ color: #333; }} table {{ border-collapse: collapse; width: 100%; }}"
-    )
-    .ok();
-    writeln!(
-        html,
-        "th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}"
-    )
-    .ok();
-    writeln!(html, "th {{ background: #4a90d9; color: white; }}").ok();
-    writeln!(html, "tr:nth-child(even) {{ background: #f2f2f2; }}").ok();
-    writeln!(
-        html,
-        ".stable {{ color: #27ae60; }} .occasional {{ color: #f39c12; }}"
-    )
-    .ok();
-    writeln!(
-        html,
-        ".moderate {{ color: #e74c3c; }} .frequent {{ color: #c0392b; font-weight: bold; }}"
-    )
-    .ok();
-    writeln!(
-        html,
-        ".critical {{ color: white; background: #c0392b; padding: 2px 6px; border-radius: 3px; }}"
-    )
-    .ok();
-    writeln!(html, "</style></head><body>").ok();
-    writeln!(html, "<h1>Flaky Test Detection Report</h1>").ok();
+    write_html_head(&mut html);
 
     let flaky_count = scores
         .iter()
         .filter(|s| s.probability_flaky >= 0.05)
         .count();
+    write_html_summary(&mut html, scores.len(), flaky_count);
+    write_html_table_header(&mut html);
+
+    for score in scores {
+        write_html_table_row(&mut html, score);
+    }
+
+    write_html_footer(&mut html);
+    write_file(path, html.as_bytes())
+}
+
+fn write_html_head(buf: &mut String) {
+    writeln!(buf, "<!DOCTYPE html>").ok();
+    writeln!(buf, "<html lang=\"en\"><head>").ok();
+    writeln!(buf, "<meta charset=\"UTF-8\">").ok();
+    writeln!(buf, "<title>Flaky Test Report — cargo ninety-nine</title>").ok();
+    writeln!(buf, "<style>").ok();
     writeln!(
-        html,
-        "<p><strong>{}</strong> tests analyzed, <strong>{flaky_count}</strong> flagged as flaky.</p>",
-        scores.len(),
+        buf,
+        "body {{ font-family: system-ui, sans-serif; margin: 2rem; background: #fafafa; }}"
     )
     .ok();
-
-    writeln!(html, "<table><thead><tr>").ok();
     writeln!(
-        html,
+        buf,
+        "h1 {{ color: #333; }} table {{ border-collapse: collapse; width: 100%; }}"
+    )
+    .ok();
+    writeln!(
+        buf,
+        "th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}"
+    )
+    .ok();
+    writeln!(buf, "th {{ background: #4a90d9; color: white; }}").ok();
+    writeln!(buf, "tr:nth-child(even) {{ background: #f2f2f2; }}").ok();
+    writeln!(
+        buf,
+        ".stable {{ color: #27ae60; }} .occasional {{ color: #f39c12; }}"
+    )
+    .ok();
+    writeln!(
+        buf,
+        ".moderate {{ color: #e74c3c; }} .frequent {{ color: #c0392b; font-weight: bold; }}"
+    )
+    .ok();
+    writeln!(
+        buf,
+        ".critical {{ color: white; background: #c0392b; padding: 2px 6px; border-radius: 3px; }}"
+    )
+    .ok();
+    writeln!(buf, "</style></head><body>").ok();
+    writeln!(buf, "<h1>Flaky Test Detection Report</h1>").ok();
+}
+
+fn write_html_summary(buf: &mut String, total: usize, flaky_count: usize) {
+    writeln!(
+        buf,
+        "<p><strong>{total}</strong> tests analyzed, <strong>{flaky_count}</strong> flagged as flaky.</p>",
+    )
+    .ok();
+}
+
+fn write_html_table_header(buf: &mut String) {
+    writeln!(buf, "<table><thead><tr>").ok();
+    writeln!(
+        buf,
         "<th>Test</th><th>P(flaky)</th><th>Pass Rate</th><th>Runs</th><th>Consec. Fails</th><th>Category</th>"
     )
     .ok();
-    writeln!(html, "</tr></thead><tbody>").ok();
+    writeln!(buf, "</tr></thead><tbody>").ok();
+}
 
-    for score in scores {
-        let category = FlakinessCategory::from_score(score.probability_flaky);
-        let css_class = category.label().to_lowercase();
-        let name = html_escape(&score.test_name);
+fn write_html_table_row(buf: &mut String, score: &FlakinessScore) {
+    let category = FlakinessCategory::from_score(score.probability_flaky);
+    let css_class = category.label().to_lowercase();
+    let name = html_escape(&score.test_name);
 
-        writeln!(html, "<tr>").ok();
-        writeln!(html, "  <td><code>{name}</code></td>").ok();
-        writeln!(html, "  <td>{:.1}%</td>", score.probability_flaky * 100.0).ok();
-        writeln!(html, "  <td>{:.1}%</td>", score.pass_rate * 100.0).ok();
-        writeln!(html, "  <td>{}</td>", score.total_runs).ok();
-        writeln!(html, "  <td>{}</td>", score.consecutive_failures).ok();
-        writeln!(
-            html,
-            "  <td><span class=\"{css_class}\">{category}</span></td>"
-        )
-        .ok();
-        writeln!(html, "</tr>").ok();
-    }
-
-    writeln!(html, "</tbody></table>").ok();
+    writeln!(buf, "<tr>").ok();
+    writeln!(buf, "  <td><code>{name}</code></td>").ok();
+    writeln!(buf, "  <td>{:.1}%</td>", score.probability_flaky * 100.0).ok();
+    writeln!(buf, "  <td>{:.1}%</td>", score.pass_rate * 100.0).ok();
+    writeln!(buf, "  <td>{}</td>", score.total_runs).ok();
+    writeln!(buf, "  <td>{}</td>", score.consecutive_failures).ok();
     writeln!(
-        html,
+        buf,
+        "  <td><span class=\"{css_class}\">{category}</span></td>"
+    )
+    .ok();
+    writeln!(buf, "</tr>").ok();
+}
+
+fn write_html_footer(buf: &mut String) {
+    writeln!(buf, "</tbody></table>").ok();
+    writeln!(
+        buf,
         "<footer><p>Generated by <em>cargo ninety-nine</em></p></footer>"
     )
     .ok();
-    writeln!(html, "</body></html>").ok();
+    writeln!(buf, "</body></html>").ok();
+}
 
-    write_file(path, html.as_bytes())
+/// Exports scores as JSON.
+///
+/// # Errors
+///
+/// Returns `Json` if serialization fails, or `Io` if the file cannot be written.
+pub fn export_json(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
+    let json = serde_json::to_string_pretty(scores)?;
+    write_file(path, json.as_bytes())
 }
 
 fn write_file(path: &Path, data: &[u8]) -> Result<(), NinetyNineError> {
@@ -212,9 +254,9 @@ mod tests {
     use tempfile::NamedTempFile;
 
     fn sample_score(name: &str, probability: f64) -> FlakinessScore {
-        use crate::types::BayesianParams;
+        use crate::types::{BayesianParams, TestName};
         FlakinessScore {
-            test_name: name.to_string(),
+            test_name: TestName::from(name),
             probability_flaky: probability,
             confidence: 0.95,
             pass_rate: 1.0 - probability,
@@ -270,6 +312,17 @@ mod tests {
         assert!(content.contains("<table>"));
     }
 
+    #[test]
+    fn json_export_is_valid_json() {
+        let scores = vec![sample_score("test::json", 0.3)];
+        let tmp = NamedTempFile::new().unwrap();
+        export_json(&scores, tmp.path()).unwrap();
+        let content = std::fs::read_to_string(tmp.path()).unwrap();
+        let parsed: Vec<FlakinessScore> = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].test_name, "test::json");
+    }
+
     proptest! {
         #[test]
         fn xml_escape_never_contains_raw_special_chars(s in ".*") {
@@ -280,6 +333,19 @@ mod tests {
                 .replace("&gt;", "")
                 .replace("&quot;", "")
                 .replace("&apos;", "");
+            prop_assert!(!without_entities.contains('&'));
+            prop_assert!(!without_entities.contains('<'));
+            prop_assert!(!without_entities.contains('>'));
+        }
+
+        #[test]
+        fn html_escape_never_contains_raw_special_chars(s in ".*") {
+            let escaped = html_escape(&s);
+            let without_entities = escaped
+                .replace("&amp;", "")
+                .replace("&lt;", "")
+                .replace("&gt;", "")
+                .replace("&quot;", "");
             prop_assert!(!without_entities.contains('&'));
             prop_assert!(!without_entities.contains('<'));
             prop_assert!(!without_entities.contains('>'));

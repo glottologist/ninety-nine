@@ -1,0 +1,145 @@
+name: Flaky Test Detection
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  flaky-tests:
+    name: detect flaky tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-ninety-nine
+        run: cargo install cargo-ninety-nine
+
+      - name: Restore previous data from gh-pages
+        run: |
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
+
+          if git rev-parse --verify gh-pages >/dev/null 2>&1; then
+            git worktree add /tmp/gh-pages gh-pages
+          else
+            git worktree add /tmp/gh-pages --orphan gh-pages
+            cd /tmp/gh-pages
+            git commit --allow-empty -m "init: gh-pages branch"
+            git push origin gh-pages
+          fi
+
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          DB_PATH="/tmp/gh-pages/flaky/${BRANCH_NAME}/ninety-nine.db"
+
+          if [ -f "$DB_PATH" ]; then
+            echo "Restoring previous database from gh-pages"
+            mkdir -p .ninety-nine
+            cp "$DB_PATH" .ninety-nine/ninety-nine.db
+          elif [ -f "/tmp/gh-pages/flaky/main/ninety-nine.db" ]; then
+            echo "Seeding from main baseline"
+            mkdir -p .ninety-nine
+            cp /tmp/gh-pages/flaky/main/ninety-nine.db .ninety-nine/ninety-nine.db
+          else
+            echo "No previous data found, starting fresh"
+          fi
+
+      - name: Configure ninety-nine
+        run: |
+          cat > .ninety-nine.toml << 'TOML'
+          [detection]
+          min_runs = 10
+          confidence_threshold = 0.95
+          parallel_runs = 4
+
+          [detection.duration_regression]
+          enabled = true
+          min_history_runs = 5
+
+          [detection.duration_regression.threshold]
+          Multiplier = { factor = 2.0 }
+
+          [storage]
+          backend = "Sqlite"
+          retention_days = 90
+
+          [storage.sqlite]
+          database_path = ".ninety-nine/ninety-nine.db"
+
+          [reporting.console]
+          summary_only = false
+          TOML
+
+      - name: Run flaky test detection
+        run: cargo ninety-nine test --iterations 10
+        continue-on-error: true
+
+      - name: Export results
+        run: |
+          cargo ninety-nine export json .ninety-nine/scores.json
+          cargo ninety-nine export junit .ninety-nine/results.xml
+        continue-on-error: true
+
+      - name: Publish to gh-pages
+        run: |
+          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
+          DEST="/tmp/gh-pages/flaky/${BRANCH_NAME}"
+          mkdir -p "$DEST"
+
+          # Copy database and exports
+          cp .ninety-nine/ninety-nine.db "$DEST/" 2>/dev/null || true
+          cp .ninety-nine/scores.json "$DEST/" 2>/dev/null || true
+          cp .ninety-nine/results.xml "$DEST/" 2>/dev/null || true
+
+          # Copy dashboard to root flaky dir
+          if [ -f "docs/dashboard/index.html" ]; then
+            cp docs/dashboard/index.html /tmp/gh-pages/flaky/
+          fi
+
+          # Generate branch index
+          cd /tmp/gh-pages/flaky
+          echo '{"branches":[' > branches.json
+          FIRST=true
+          for dir in */; do
+            [ -f "${dir}scores.json" ] || continue
+            if [ "$FIRST" = true ]; then FIRST=false; else echo ',' >> branches.json; fi
+            BRANCH="${dir%/}"
+            TIMESTAMP=$(stat -c %Y "${dir}scores.json" 2>/dev/null || echo "0")
+            echo "\"${BRANCH}\"" >> branches.json
+          done
+          echo ']}' >> branches.json
+
+          cd /tmp/gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add flaky/
+          git diff --staged --quiet || git commit -m "update: flaky test data for ${BRANCH_NAME} $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin gh-pages
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flaky-test-results
+          path: |
+            .ninety-nine/scores.json
+            .ninety-nine/results.xml
+          if-no-files-found: ignore
