@@ -126,11 +126,21 @@ pub async fn list_tests_parallel(
 
     let mut all_cases = Vec::new();
     for handle in handles {
-        let cases = handle.await.map_err(|e| NinetyNineError::TestListing {
+        let result = handle.await.map_err(|e| NinetyNineError::TestListing {
             binary: PathBuf::new(),
             message: format!("task join error: {e}"),
-        })??;
-        all_cases.extend(cases);
+        })?;
+
+        match result {
+            Ok(cases) => all_cases.extend(cases),
+            Err(NinetyNineError::TestListing { binary, message }) => {
+                tracing::warn!(
+                    binary = %binary.display(),
+                    "skipping binary that failed to list tests: {message}"
+                );
+            }
+            Err(e) => return Err(e),
+        }
     }
 
     Ok(all_cases)
