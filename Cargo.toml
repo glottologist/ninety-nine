@@ -39,6 +39,9 @@ regex = "1.11"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"] }
 deadpool-postgres = "0.14"
 
+[lints.rust]
+async_fn_in_trait = "allow"
+
 [dev-dependencies]
 proptest = "1.6"
 rstest = "0.24"
