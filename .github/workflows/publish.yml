@@ -1,0 +1,170 @@
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --all-targets
+
+      - name: Run clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: test
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - name: linux-x86_64
+            runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - name: linux-aarch64
+            runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          - name: macos-aarch64
+            runner: macos-latest
+            target: aarch64-apple-darwin
+          - name: windows-x86_64
+            runner: windows-latest
+            target: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Rename binary (unix)
+        if: runner.os != 'Windows'
+        run: mv target/${{ matrix.target }}/release/cargo-ninety-nine cargo-ninety-nine-${{ matrix.target }}
+
+      - name: Rename binary (windows)
+        if: runner.os == 'Windows'
+        run: mv target/${{ matrix.target }}/release/cargo-ninety-nine.exe cargo-ninety-nine-${{ matrix.target }}.exe
+
+      - name: Upload artifact (unix)
+        if: runner.os != 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-ninety-nine-${{ matrix.target }}
+          path: cargo-ninety-nine-${{ matrix.target }}
+
+      - name: Upload artifact (windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-ninety-nine-${{ matrix.target }}
+          path: cargo-ninety-nine-${{ matrix.target }}.exe
+
+  publish:
+    name: Publish to crates.io
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Verify package
+        run: cargo publish --dry-run --allow-dirty
+
+      - name: Publish
+        run: cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release:
+    name: GitHub Release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          find artifacts -type f -exec mv {} release/ \;
+          ls -la release/
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
+          if [ "${PREV_TAG}" = "${TAG}" ] || [ -z "${PREV_TAG}" ]; then
+            echo "body=Initial release" >> "$GITHUB_OUTPUT"
+          else
+            NOTES=$(git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s" --no-merges)
+            {
+              echo "body<<EOF"
+              echo "${NOTES}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release/*
+          body: |
+            ## Install
+
+            ```bash
+            cargo install cargo-ninety-nine
+            ```
+
+            ## Downloads
+
+            | Platform | Binary |
+            |----------|--------|
+            | Linux x86_64 | `cargo-ninety-nine-x86_64-unknown-linux-gnu` |
+            | Linux aarch64 | `cargo-ninety-nine-aarch64-unknown-linux-gnu` |
+            | macOS aarch64 | `cargo-ninety-nine-aarch64-apple-darwin` |
+            | Windows x86_64 | `cargo-ninety-nine-x86_64-pc-windows-msvc.exe` |
+
+            ## Changes
+
+            ${{ steps.notes.outputs.body }}
