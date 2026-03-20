@@ -233,21 +233,30 @@ async fn execute_test_suite(
 
     let mut join_set = tokio::task::JoinSet::new();
     for test_case in tests {
-        let permit = Arc::clone(&semaphore).acquire_owned().await.map_err(|e| {
-            NinetyNineError::RunnerExecution {
-                message: format!("semaphore closed: {e}"),
-            }
-        })?;
-        let tc = test_case.clone(); // clone: moved into spawn_blocking
+        let sem = Arc::clone(&semaphore);
+        let tc = test_case.clone(); // clone: moved into spawned task
         let cfg = Arc::clone(&config);
         let env = Arc::clone(&environment);
 
-        join_set.spawn_blocking(move || {
-            let _permit = permit;
-            let start = Instant::now();
-            let runs = execute_iterations(&tc, iterations, &cfg, &env)?;
-            let elapsed = start.elapsed();
-            Ok::<_, NinetyNineError>((tc, runs, elapsed))
+        join_set.spawn(async move {
+            let permit =
+                sem.acquire_owned()
+                    .await
+                    .map_err(|e| NinetyNineError::RunnerExecution {
+                        message: format!("semaphore closed: {e}"),
+                    })?;
+
+            tokio::task::spawn_blocking(move || {
+                let _permit = permit;
+                let start = Instant::now();
+                let runs = execute_iterations(&tc, iterations, &cfg, &env)?;
+                let elapsed = start.elapsed();
+                Ok::<_, NinetyNineError>((tc, runs, elapsed))
+            })
+            .await
+            .map_err(|e| NinetyNineError::RunnerExecution {
+                message: format!("task join error: {e}"),
+            })?
         });
     }
 
