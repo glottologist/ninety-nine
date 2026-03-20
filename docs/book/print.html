@@ -1,0 +1,3159 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>cargo ninety-nine</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A cargo plugin for finding and tracking flaky tests using Bayesian inference">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">cargo ninety-nine</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/glottologist/ninety-nine" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="cargo-ninety-nine"><a class="header" href="#cargo-ninety-nine">cargo ninety-nine</a></h1>
+<div align="center">
+  <img src="../media/99-medium-res.png" alt="cargo ninety-nine logo" width="200"/>
+</div>
+<p><strong>A cargo plugin for finding and tracking flaky tests in Rust projects using Bayesian inference.</strong></p>
+<p>Flaky tests -- tests that sometimes pass and sometimes fail without code changes -- erode trust in your test suite, waste CI time, and mask real regressions. <code>cargo ninety-nine</code> runs each test multiple times, applies Bayesian statistical analysis to compute a flakiness probability, and tracks results over time in a local SQLite database.</p>
+<h2 id="key-features"><a class="header" href="#key-features">Key Features</a></h2>
+<ul>
+<li><strong>Bayesian flakiness detection</strong> -- computes posterior probability of flakiness using Beta distribution, not just pass/fail ratios</li>
+<li><strong>Filter DSL</strong> -- expressive query language to target tests by name, package, binary, kind, or flakiness status</li>
+<li><strong>Pattern analysis</strong> -- detects time-of-day and environmental (CI vs local) failure patterns</li>
+<li><strong>Trend tracking</strong> -- monitors whether tests are improving, stable, or degrading over time</li>
+<li><strong>Quarantine management</strong> -- manually or automatically quarantine flaky tests that exceed thresholds</li>
+<li><strong>Multiple export formats</strong> -- JUnit XML, HTML reports, CSV, and JSON for integration with other tools</li>
+<li><strong>CI workflow generation</strong> -- generates ready-to-use GitHub Actions and GitLab CI configurations</li>
+<li><strong>Persistent storage</strong> -- SQLite database with WAL mode for concurrent access, automatic data retention</li>
+</ul>
+<h2 id="quick-example"><a class="header" href="#quick-example">Quick Example</a></h2>
+<pre><code class="language-bash"># Initialize configuration
+cargo ninety-nine init
+
+# Run flaky test detection (10 iterations per test)
+cargo ninety-nine test -n 10
+
+# Run only flaky, non-quarantined tests
+cargo ninety-nine test "flaky &amp; !quarantined"
+
+# Check a specific test's history
+cargo ninety-nine status tests::my_flaky_test
+
+# Export results as JSON
+cargo ninety-nine export json results.json
+</code></pre>
+<h2 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h2>
+<ol>
+<li><strong>Discover</strong> -- compiles test binaries and lists all test cases</li>
+<li><strong>Filter</strong> -- applies filter expressions to select which tests to run</li>
+<li><strong>Execute</strong> -- runs each test N times with configurable concurrency and timeouts</li>
+<li><strong>Analyze</strong> -- applies Bayesian inference to compute P(flaky) with credible intervals</li>
+<li><strong>Report</strong> -- displays results with category labels (Stable, Occasional, Moderate, Frequent, Critical)</li>
+<li><strong>Store</strong> -- persists scores and run history for trend analysis across sessions</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<h2 id="prerequisites"><a class="header" href="#prerequisites">Prerequisites</a></h2>
+<ul>
+<li><strong>Rust 1.85+</strong> (Edition 2024)</li>
+<li><strong>cargo</strong> (included with Rust)</li>
+<li>Optionally, <strong>cargo-nextest</strong> for enhanced test running</li>
+</ul>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>Install from crates.io:</p>
+<pre><code class="language-bash">cargo install cargo-ninety-nine
+</code></pre>
+<p>Or build from source:</p>
+<pre><code class="language-bash">git clone https://github.com/glottologist/ninety-nine.git
+cd ninety-nine
+cargo install --path .
+</code></pre>
+<h2 id="verify-installation"><a class="header" href="#verify-installation">Verify Installation</a></h2>
+<pre><code class="language-bash">cargo ninety-nine --version
+</code></pre>
+<h2 id="initialize-a-project"><a class="header" href="#initialize-a-project">Initialize a Project</a></h2>
+<p>Navigate to your Rust project and create a configuration file:</p>
+<pre><code class="language-bash">cd /path/to/your/project
+cargo ninety-nine init
+</code></pre>
+<p>This creates a <code>.ninety-nine.toml</code> file with sensible defaults. You can overwrite an existing config with:</p>
+<pre><code class="language-bash">cargo ninety-nine init --force
+</code></pre>
+<h2 id="first-test-run"><a class="header" href="#first-test-run">First Test Run</a></h2>
+<p>Run detection with default settings (10 iterations per test):</p>
+<pre><code class="language-bash">cargo ninety-nine test
+</code></pre>
+<p>Filter to specific tests using a name pattern:</p>
+<pre><code class="language-bash">cargo ninety-nine test "my_module::tests"
+</code></pre>
+<p>Use the filter DSL to target specific subsets:</p>
+<pre><code class="language-bash">cargo ninety-nine test "flaky &amp; !quarantined"
+</code></pre>
+<p>Increase iterations for higher confidence:</p>
+<pre><code class="language-bash">cargo ninety-nine test -n 50 --confidence 0.99
+</code></pre>
+<h2 id="output-formats"><a class="header" href="#output-formats">Output Formats</a></h2>
+<p>Add <code>--output json</code> to any command for machine-readable output:</p>
+<pre><code class="language-bash">cargo ninety-nine status --output json
+cargo ninety-nine history --output json
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<p>Configuration is stored in <code>.ninety-nine.toml</code> at the project root. All fields are optional — missing fields use defaults.</p>
+<h2 id="generating-a-config-file"><a class="header" href="#generating-a-config-file">Generating a Config File</a></h2>
+<pre><code class="language-bash">cargo ninety-nine init
+</code></pre>
+<h2 id="minimal-configuration"><a class="header" href="#minimal-configuration">Minimal Configuration</a></h2>
+<p>An empty <code>.ninety-nine.toml</code> file uses all defaults. You only need to specify values you want to change:</p>
+<pre><code class="language-toml">[detection]
+min_runs = 20
+confidence_threshold = 0.99
+
+[ci]
+fail_on_flaky = true
+</code></pre>
+<h2 id="full-configuration-reference"><a class="header" href="#full-configuration-reference">Full Configuration Reference</a></h2>
+<p>See <a href="getting-started/../reference/configuration.html">Configuration Reference</a> for all available options and their defaults.</p>
+<h2 id="config-loading"><a class="header" href="#config-loading">Config Loading</a></h2>
+<p>The config file is loaded from the <code>--project-dir</code> path (defaults to <code>.</code>). If no config file exists, all default values are used. Unknown fields in the TOML file are silently ignored, so the config file is forward-compatible with newer versions.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="usage-overview"><a class="header" href="#usage-overview">Usage Overview</a></h1>
+<p><code>cargo ninety-nine</code> provides seven subcommands:</p>
+<div class="table-wrapper"><table><thead><tr><th>Command</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>test</code></td><td>Run tests repeatedly and compute flakiness scores</td></tr>
+<tr><td><code>init</code></td><td>Create a default configuration file</td></tr>
+<tr><td><code>status</code></td><td>View current flakiness scores and test detail</td></tr>
+<tr><td><code>history</code></td><td>View past detection sessions</td></tr>
+<tr><td><code>export</code></td><td>Export results to JUnit XML, HTML, CSV, or JSON</td></tr>
+<tr><td><code>quarantine</code></td><td>Manage test quarantine (list, add, remove)</td></tr>
+<tr><td><code>ci</code></td><td>Generate CI workflow files</td></tr>
+</tbody></table>
+</div>
+<h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
+<p>These options apply to all subcommands:</p>
+<pre><code>--project-dir &lt;PATH&gt;   Project root directory (default: .)
+--output &lt;FORMAT&gt;      Output format: console or json (default: console)
+--verbose, -v          Verbose output during detection
+</code></pre>
+<h2 id="typical-workflow"><a class="header" href="#typical-workflow">Typical Workflow</a></h2>
+<ol>
+<li><strong>Initialize</strong> -- <code>cargo ninety-nine init</code></li>
+<li><strong>Test</strong> -- <code>cargo ninety-nine test -n 20</code></li>
+<li><strong>Filter</strong> -- <code>cargo ninety-nine test "flaky &amp; !quarantined"</code> (see <a href="guides/./filter-dsl.html">Filter DSL</a>)</li>
+<li><strong>Investigate</strong> -- <code>cargo ninety-nine status tests::suspect_test</code></li>
+<li><strong>Quarantine</strong> -- <code>cargo ninety-nine quarantine add tests::flaky_test --reason "timing-dependent"</code></li>
+<li><strong>Export</strong> -- <code>cargo ninety-nine export html report.html</code></li>
+<li><strong>Automate</strong> -- <code>cargo ninety-nine ci generate github</code></li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h1>
+<p>The <code>test</code> subcommand is the core functionality -- it discovers, runs, and analyzes tests for flakiness.</p>
+<h2 id="basic-usage"><a class="header" href="#basic-usage">Basic Usage</a></h2>
+<pre><code class="language-bash"># Run all tests 10 times each (default)
+cargo ninety-nine test
+
+# Filter to specific tests by name pattern
+cargo ninety-nine test "my_module::tests"
+
+# 50 iterations with 99% confidence threshold
+cargo ninety-nine test -n 50 --confidence 0.99
+</code></pre>
+<h2 id="options"><a class="header" href="#options">Options</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;filter_expr&gt;</code></td><td>none</td><td>Filter expression -- a test name regex or <a href="guides/./filter-dsl.html">DSL expression</a></td></tr>
+<tr><td><code>-n, --iterations</code></td><td>10</td><td>Number of times to run each test</td></tr>
+<tr><td><code>--confidence</code></td><td>0.95</td><td>Confidence threshold for classifying a test as flaky</td></tr>
+</tbody></table>
+</div>
+<h2 id="filter-expressions"><a class="header" href="#filter-expressions">Filter Expressions</a></h2>
+<p>The positional argument accepts either a plain regex pattern or a full <a href="guides/./filter-dsl.html">filter DSL</a> expression:</p>
+<pre><code class="language-bash"># Regex pattern matching test names
+cargo ninety-nine test "my_module::tests"
+
+# DSL: only tests marked flaky that are not quarantined
+cargo ninety-nine test "flaky &amp; !quarantined"
+
+# DSL: tests in a specific package
+cargo ninety-nine test "package(my_crate)"
+
+# DSL: combine predicates
+cargo ninety-nine test "test(network) &amp; kind(test) &amp; !quarantined"
+</code></pre>
+<p>See the <a href="guides/./filter-dsl.html">Filter DSL guide</a> for the full syntax reference.</p>
+<h2 id="what-happens-during-a-run"><a class="header" href="#what-happens-during-a-run">What Happens During a Run</a></h2>
+<ol>
+<li><strong>Binary discovery</strong> -- runs <code>cargo test --no-run --message-format json-render-diagnostics</code> to compile and locate test binaries</li>
+<li><strong>Test listing</strong> -- executes each binary with <code>--list --format terse</code> to enumerate test cases</li>
+<li><strong>Filtering</strong> -- evaluates the filter expression (if provided) against each test's metadata</li>
+<li><strong>Parallel execution</strong> -- runs each matched test individually N times using <code>--exact --nocapture</code> flags</li>
+<li><strong>Bayesian scoring</strong> -- computes P(flaky) using Beta distribution with uniform prior</li>
+<li><strong>Storage</strong> -- writes results to SQLite database for trend tracking</li>
+<li><strong>Reporting</strong> -- displays results sorted by flakiness probability</li>
+</ol>
+<h2 id="understanding-the-output"><a class="header" href="#understanding-the-output">Understanding the Output</a></h2>
+<h3 id="console-report"><a class="header" href="#console-report">Console Report</a></h3>
+<pre><code>Flaky Test Detection Report
+
+Test                                               Runs     Pass%   P(flaky)     Category
+--------------------------------------------------------------------------------------------
+tests::race_condition                                10     60.0%      33.3%     Frequent
+tests::timing_dependent                              10     80.0%      16.7%     Moderate
+tests::stable_test                                   10    100.0%       1.0%       Stable
+</code></pre>
+<h3 id="flakiness-categories"><a class="header" href="#flakiness-categories">Flakiness Categories</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>P(flaky) Range</th><th>Meaning</th></tr></thead><tbody>
+<tr><td>Stable</td><td>&lt; 1%</td><td>Reliably passes</td></tr>
+<tr><td>Occasional</td><td>1% - 5%</td><td>Rare failures, may be acceptable</td></tr>
+<tr><td>Moderate</td><td>5% - 15%</td><td>Notable flakiness, worth investigating</td></tr>
+<tr><td>Frequent</td><td>15% - 30%</td><td>Significant problem</td></tr>
+<tr><td>Critical</td><td>&gt; 30%</td><td>Severely broken, likely a bug</td></tr>
+</tbody></table>
+</div>
+<h2 id="post-run-analysis"><a class="header" href="#post-run-analysis">Post-Run Analysis</a></h2>
+<p>After the main report, the tool displays:</p>
+<ul>
+<li><strong>Detected Patterns</strong> -- time-of-day or environmental correlations in failure data</li>
+<li><strong>Degrading Trends</strong> -- tests whose failure rate has increased between recent and previous runs</li>
+</ul>
+<h2 id="auto-quarantine"><a class="header" href="#auto-quarantine">Auto-Quarantine</a></h2>
+<p>If <code>quarantine.auto_quarantine = true</code> in config, tests exceeding the configured thresholds are automatically quarantined after detection. See <a href="guides/./quarantine.html">Quarantine Management</a>.</p>
+<h2 id="verbose-mode"><a class="header" href="#verbose-mode">Verbose Mode</a></h2>
+<p>Use <code>-v</code> for per-test progress output instead of the progress bar:</p>
+<pre><code class="language-bash">cargo ninety-nine test -v
+</code></pre>
+<h2 id="summary-mode"><a class="header" href="#summary-mode">Summary Mode</a></h2>
+<p>Set <code>reporting.console.summary_only = true</code> in config to show only aggregate counts:</p>
+<pre><code>Summary: 42 tests, 3 flaky, 39 stable
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="filter-dsl"><a class="header" href="#filter-dsl">Filter DSL</a></h1>
+<p>The filter DSL lets you select which tests to run using an expressive query language. Filters are passed as the positional argument to the <code>test</code> command.</p>
+<pre><code class="language-bash">cargo ninety-nine test "&lt;filter expression&gt;"
+</code></pre>
+<h2 id="syntax-overview"><a class="header" href="#syntax-overview">Syntax Overview</a></h2>
+<p>A filter expression is built from <strong>predicates</strong> combined with <strong>boolean operators</strong>.</p>
+<h3 id="bare-words"><a class="header" href="#bare-words">Bare Words</a></h3>
+<p>A bare word (any identifier that is not a keyword or function call) is treated as a regex pattern matched against the test name:</p>
+<pre><code class="language-bash"># Matches any test whose name contains "network"
+cargo ninety-nine test "network"
+
+# Regex: matches test names starting with "tests::db_"
+cargo ninety-nine test "tests::db_"
+</code></pre>
+<h3 id="function-predicates"><a class="header" href="#function-predicates">Function Predicates</a></h3>
+<p>Function predicates filter tests by metadata fields. The argument is always a single identifier.</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Matches</th></tr></thead><tbody>
+<tr><td><code>test(pattern)</code></td><td>Test name matches the regex <code>pattern</code></td></tr>
+<tr><td><code>package(name)</code></td><td>Test belongs to a package whose name contains <code>name</code></td></tr>
+<tr><td><code>binary(name)</code></td><td>Test belongs to a binary whose name contains <code>name</code></td></tr>
+<tr><td><code>kind(k)</code></td><td>Binary kind is <code>k</code> -- one of <code>lib</code>, <code>bin</code>, <code>test</code>, <code>example</code></td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-bash"># Tests in the "my_crate" package
+cargo ninety-nine test "package(my_crate)"
+
+# Tests from test binaries only (excludes doctests, examples, etc.)
+cargo ninety-nine test "kind(test)"
+
+# Tests whose name matches a regex
+cargo ninety-nine test "test(db_.*insert)"
+</code></pre>
+<h3 id="boolean-keywords"><a class="header" href="#boolean-keywords">Boolean Keywords</a></h3>
+<p>These keywords evaluate based on stored flakiness data:</p>
+<div class="table-wrapper"><table><thead><tr><th>Keyword</th><th>Matches</th></tr></thead><tbody>
+<tr><td><code>flaky</code></td><td>Tests with P(flaky) &gt; 1% at or above the confidence threshold</td></tr>
+<tr><td><code>quarantined</code></td><td>Tests currently in the quarantine list</td></tr>
+<tr><td><code>all</code></td><td>All tests (always true)</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-bash"># Only previously-detected flaky tests
+cargo ninety-nine test "flaky"
+
+# All quarantined tests
+cargo ninety-nine test "quarantined"
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: The <code>flaky</code> and <code>quarantined</code> keywords rely on data from previous runs stored in the database. Run <code>test</code> at least once before using them.</p>
+</blockquote>
+<h2 id="operators"><a class="header" href="#operators">Operators</a></h2>
+<p>Combine predicates using boolean operators:</p>
+<div class="table-wrapper"><table><thead><tr><th>Operator</th><th>Meaning</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>&amp;</code></td><td>AND -- both sides must match</td><td><code>flaky &amp; kind(test)</code></td></tr>
+<tr><td><code>|</code></td><td>OR -- either side must match</td><td><code>package(a) | package(b)</code></td></tr>
+<tr><td><code>!</code></td><td>NOT -- inverts the predicate</td><td><code>!quarantined</code></td></tr>
+<tr><td><code>( )</code></td><td>Grouping -- controls evaluation order</td><td><code>(flaky | quarantined) &amp; kind(test)</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="operator-precedence"><a class="header" href="#operator-precedence">Operator Precedence</a></h3>
+<p>From highest to lowest:</p>
+<ol>
+<li><code>!</code> (NOT) -- binds tightest</li>
+<li><code>&amp;</code> (AND)</li>
+<li><code>|</code> (OR) -- binds loosest</li>
+</ol>
+<p>Use parentheses to override the default precedence when needed.</p>
+<p><strong>Example</strong>: <code>flaky | quarantined &amp; kind(test)</code> is parsed as <code>flaky | (quarantined &amp; kind(test))</code> because <code>&amp;</code> binds tighter than <code>|</code>. To apply the OR first, write <code>(flaky | quarantined) &amp; kind(test)</code>.</p>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<h3 id="basic-filtering"><a class="header" href="#basic-filtering">Basic Filtering</a></h3>
+<pre><code class="language-bash"># Run all tests (no filter)
+cargo ninety-nine test
+
+# Match test names by regex
+cargo ninety-nine test "integration"
+
+# Tests in a specific package
+cargo ninety-nine test "package(my_lib)"
+</code></pre>
+<h3 id="combining-predicates"><a class="header" href="#combining-predicates">Combining Predicates</a></h3>
+<pre><code class="language-bash"># Flaky tests that are not quarantined
+cargo ninety-nine test "flaky &amp; !quarantined"
+
+# Tests from either of two packages
+cargo ninety-nine test "package(auth) | package(session)"
+
+# Network tests in the integration test binary
+cargo ninety-nine test "test(network) &amp; binary(integration)"
+</code></pre>
+<h3 id="ci-focused-patterns"><a class="header" href="#ci-focused-patterns">CI-Focused Patterns</a></h3>
+<pre><code class="language-bash"># Re-run only known flaky tests with extra iterations
+cargo ninety-nine test "flaky &amp; !quarantined" -n 50
+
+# Run test binaries only, skip examples and benches
+cargo ninety-nine test "kind(test)"
+
+# Quarantined tests only (verify if they are still flaky)
+cargo ninety-nine test "quarantined" -n 30 --confidence 0.99
+
+# Everything except quarantined tests
+cargo ninety-nine test "!quarantined"
+</code></pre>
+<h3 id="complex-expressions"><a class="header" href="#complex-expressions">Complex Expressions</a></h3>
+<pre><code class="language-bash"># Flaky tests in test binaries from a specific package
+cargo ninety-nine test "flaky &amp; kind(test) &amp; package(core)"
+
+# Either flaky or quarantined, but only from lib targets
+cargo ninety-nine test "(flaky | quarantined) &amp; kind(lib)"
+</code></pre>
+<h2 id="error-handling"><a class="header" href="#error-handling">Error Handling</a></h2>
+<p>Invalid filter expressions produce a clear error message:</p>
+<pre><code class="language-bash">$ cargo ninety-nine test "kind(invalid)"
+# Error: unknown binary kind: invalid
+
+$ cargo ninety-nine test "unknown_func(arg)"
+# Error: unknown function: unknown_func
+</code></pre>
+<p>Valid <code>kind</code> values are: <code>lib</code>, <code>bin</code>, <code>test</code>, <code>example</code>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="quarantine-management"><a class="header" href="#quarantine-management">Quarantine Management</a></h1>
+<p>Quarantine allows you to mark flaky tests for tracking and review. Quarantined tests are stored in the SQLite database.</p>
+<h2 id="list-quarantined-tests"><a class="header" href="#list-quarantined-tests">List Quarantined Tests</a></h2>
+<pre><code class="language-bash">cargo ninety-nine quarantine list
+</code></pre>
+<p>Output shows test name, flakiness score, whether it was auto-quarantined, and when:</p>
+<pre><code>Quarantined Tests
+
+Test                                                  Score       Auto Since
+------------------------------------------------------------------------------------------------
+tests::race_condition                                  33.3%        yes 2026-03-05 14:30:00
+tests::timing_test                                     20.0%         no 2026-03-04 10:15:00
+</code></pre>
+<h2 id="add-a-test-to-quarantine"><a class="header" href="#add-a-test-to-quarantine">Add a Test to Quarantine</a></h2>
+<pre><code class="language-bash">cargo ninety-nine quarantine add "tests::flaky_test" --reason "depends on network timing"
+</code></pre>
+<p>The <code>--reason</code> flag defaults to <code>"manually quarantined"</code> if omitted.</p>
+<h2 id="remove-a-test-from-quarantine"><a class="header" href="#remove-a-test-from-quarantine">Remove a Test from Quarantine</a></h2>
+<pre><code class="language-bash">cargo ninety-nine quarantine remove "tests::flaky_test"
+</code></pre>
+<h2 id="auto-quarantine-1"><a class="header" href="#auto-quarantine-1">Auto-Quarantine</a></h2>
+<p>Enable automatic quarantine in <code>.ninety-nine.toml</code>:</p>
+<pre><code class="language-toml">[quarantine]
+enabled = true
+auto_quarantine = true
+
+[quarantine.threshold]
+consecutive_failures = 3
+failure_rate = 0.20
+flakiness_score = 0.15
+</code></pre>
+<p>When <code>auto_quarantine = true</code>, any test detected as flaky (by the Bayesian detector) that also exceeds <strong>any</strong> of the three thresholds is automatically quarantined after a <code>detect</code> run.</p>
+<h3 id="threshold-fields"><a class="header" href="#threshold-fields">Threshold Fields</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>consecutive_failures</code></td><td>3</td><td>Number of consecutive failures at the tail of the run</td></tr>
+<tr><td><code>failure_rate</code></td><td>0.20</td><td>Overall failure rate (failures / total runs)</td></tr>
+<tr><td><code>flakiness_score</code></td><td>0.15</td><td>Bayesian P(flaky) posterior mean</td></tr>
+</tbody></table>
+</div>
+<p>A test is auto-quarantined if <code>is_flaky(score) AND (exceeds_score OR exceeds_failures OR exceeds_rate)</code>.</p>
+<h2 id="json-output"><a class="header" href="#json-output">JSON Output</a></h2>
+<pre><code class="language-bash">cargo ninety-nine quarantine list --output json
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="exporting-results"><a class="header" href="#exporting-results">Exporting Results</a></h1>
+<p>Export flakiness scores to various file formats for integration with CI dashboards, issue trackers, or custom tooling.</p>
+<h2 id="formats"><a class="header" href="#formats">Formats</a></h2>
+<h3 id="junit-xml"><a class="header" href="#junit-xml">JUnit XML</a></h3>
+<pre><code class="language-bash">cargo ninety-nine export junit results.xml
+</code></pre>
+<p>Produces standard JUnit XML. Tests with P(flaky) &gt;= 5% are marked as failures with details in the failure message. Compatible with CI systems that parse JUnit reports (GitHub Actions, GitLab, Jenkins, etc.).</p>
+<h3 id="html-report"><a class="header" href="#html-report">HTML Report</a></h3>
+<pre><code class="language-bash">cargo ninety-nine export html report.html
+</code></pre>
+<p>Generates a self-contained HTML page with a styled table showing all test scores. Categories are color-coded. Suitable for sharing with teams or archiving.</p>
+<h3 id="csv"><a class="header" href="#csv">CSV</a></h3>
+<pre><code class="language-bash">cargo ninety-nine export csv results.csv
+</code></pre>
+<p>Produces a CSV file with columns:</p>
+<pre><code>test_name,probability_flaky,pass_rate,total_runs,consecutive_failures,category,confidence
+</code></pre>
+<p>Values containing commas, quotes, or newlines are properly escaped per RFC 4180.</p>
+<h3 id="json"><a class="header" href="#json">JSON</a></h3>
+<pre><code class="language-bash">cargo ninety-nine export json results.json
+</code></pre>
+<p>Produces a JSON array of flakiness score objects with full detail, including Bayesian parameters. Useful for programmatic consumption, custom dashboards, or piping into other tools.</p>
+<pre><code class="language-json">[
+  {
+    "test_name": "tests::example",
+    "probability_flaky": 0.167,
+    "confidence": 0.95,
+    "pass_rate": 0.8,
+    "fail_rate": 0.2,
+    "total_runs": 10,
+    "consecutive_failures": 1,
+    "bayesian_params": {
+      "alpha": 1.0,
+      "beta": 1.0,
+      "posterior_mean": 0.167,
+      "posterior_variance": 0.01,
+      "credible_interval_lower": 0.02,
+      "credible_interval_upper": 0.38
+    }
+  }
+]
+</code></pre>
+<h2 id="data-source"><a class="header" href="#data-source">Data Source</a></h2>
+<p>Export uses the most recent flakiness scores stored in the SQLite database. Run <code>test</code> first to populate data.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ci-integration"><a class="header" href="#ci-integration">CI Integration</a></h1>
+<h2 id="generating-ci-workflows"><a class="header" href="#generating-ci-workflows">Generating CI Workflows</a></h2>
+<p>Generate ready-to-use CI configuration files:</p>
+<h3 id="github-actions"><a class="header" href="#github-actions">GitHub Actions</a></h3>
+<pre><code class="language-bash"># Print to stdout
+cargo ninety-nine ci generate github
+
+# Write to file
+cargo ninety-nine ci generate github .github/workflows/flaky-tests.yml
+</code></pre>
+<p>The generated workflow:</p>
+<ul>
+<li>Runs on a weekly schedule (Monday 3:00 AM UTC) and on manual dispatch</li>
+<li>Installs Rust, cargo-nextest, and cargo-ninety-nine</li>
+<li>Runs flaky test detection with your configured <code>min_runs</code> and <code>confidence_threshold</code></li>
+<li>Exports JUnit XML results</li>
+<li>Uploads results as a build artifact</li>
+</ul>
+<h3 id="gitlab-ci"><a class="header" href="#gitlab-ci">GitLab CI</a></h3>
+<pre><code class="language-bash">cargo ninety-nine ci generate gitlab .gitlab-ci-flaky.yml
+</code></pre>
+<p>The generated job:</p>
+<ul>
+<li>Runs on scheduled and manual pipelines</li>
+<li>Uses the <code>rust:latest</code> Docker image</li>
+<li>Installs cargo-nextest and cargo-ninety-nine</li>
+<li>Runs detection and exports JUnit XML</li>
+<li>Publishes JUnit artifacts for GitLab's test report</li>
+</ul>
+<h2 id="fail_on_flaky"><a class="header" href="#fail_on_flaky">fail_on_flaky</a></h2>
+<p>The <code>ci.fail_on_flaky</code> config option controls whether the CI step fails when flaky tests are detected:</p>
+<pre><code class="language-toml">[ci]
+fail_on_flaky = true
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Value</th><th>GitHub Actions</th><th>GitLab CI</th></tr></thead><tbody>
+<tr><td><code>false</code> (default)</td><td>Adds <code>continue-on-error: true</code></td><td>Adds <code>allow_failure: true</code></td></tr>
+<tr><td><code>true</code></td><td>Step fails normally</td><td>Step fails normally</td></tr>
+</tbody></table>
+</div>
+<p>When <code>fail_on_flaky = true</code>, the <code>detect</code> command exits with a non-zero status code if any test is classified as flaky by the Bayesian detector.</p>
+<h2 id="manual-ci-setup"><a class="header" href="#manual-ci-setup">Manual CI Setup</a></h2>
+<p>If you prefer to configure CI manually:</p>
+<pre><code class="language-bash"># Install
+cargo install cargo-ninety-nine
+
+# Run detection
+cargo ninety-nine test -n 20 --confidence 0.95
+
+# Export for CI test report parsing
+cargo ninety-nine export junit flaky-results.xml
+
+# Exit non-zero if flaky (optional, set in config)
+# Or check the exit code of detect when fail_on_flaky = true
+</code></pre>
+<h2 id="environment-detection"><a class="header" href="#environment-detection">Environment Detection</a></h2>
+<p><code>cargo ninety-nine</code> automatically detects the CI environment:</p>
+<div class="table-wrapper"><table><thead><tr><th>Environment Variable</th><th>Detected Provider</th></tr></thead><tbody>
+<tr><td><code>GITHUB_ACTIONS</code></td><td>GitHub Actions</td></tr>
+<tr><td><code>GITLAB_CI</code></td><td>GitLab CI</td></tr>
+<tr><td><code>JENKINS_URL</code></td><td>Jenkins</td></tr>
+<tr><td><code>CIRCLECI</code></td><td>CircleCI</td></tr>
+<tr><td><code>BUILDKITE</code></td><td>Buildkite</td></tr>
+<tr><td><code>TF_BUILD</code></td><td>Azure DevOps</td></tr>
+</tbody></table>
+</div>
+<p>The detected provider is stored with each test run, enabling environmental pattern analysis (CI vs local failure rate differences).</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="best-practices"><a class="header" href="#best-practices">Best Practices</a></h1>
+<p>Guidance for getting the most out of <code>cargo-ninety-nine</code> in real-world workflows.</p>
+<h2 id="iteration-strategy"><a class="header" href="#iteration-strategy">Iteration Strategy</a></h2>
+<h3 id="choosing-min_runs"><a class="header" href="#choosing-min_runs">Choosing <code>min_runs</code></a></h3>
+<p>The number of iterations directly impacts detection accuracy:</p>
+<div class="table-wrapper"><table><thead><tr><th>Iterations</th><th>Use Case</th><th>Confidence</th></tr></thead><tbody>
+<tr><td>5–10</td><td>Quick smoke check</td><td>Low — high false positive rate</td></tr>
+<tr><td>10–20</td><td>Daily development</td><td>Moderate — good for known-flaky tests</td></tr>
+<tr><td>20–50</td><td>Pre-merge gate</td><td>High — reliable classification</td></tr>
+<tr><td>50–100</td><td>Baseline establishment</td><td>Very high — suitable for initial assessment</td></tr>
+</tbody></table>
+</div>
+<blockquote>
+<p><strong>Note:</strong> The Bayesian detector uses a uniform Beta(1,1) prior. With fewer than 10 runs, the prior dominates the posterior and scores are unreliable. The default <code>min_runs = 10</code> is a minimum for meaningful results.</p>
+</blockquote>
+<h3 id="building-a-baseline"><a class="header" href="#building-a-baseline">Building a Baseline</a></h3>
+<p>When first adopting <code>cargo-ninety-nine</code>, establish a baseline:</p>
+<pre><code class="language-bash"># Run with higher iterations to build confidence
+cargo ninety-nine test -n 50
+
+# Review the full status
+cargo ninety-nine status
+</code></pre>
+<p>Subsequent runs build on the historical data, so daily runs with fewer iterations (10–20) are sufficient once the baseline exists.</p>
+<h2 id="quarantine-strategy"><a class="header" href="#quarantine-strategy">Quarantine Strategy</a></h2>
+<h3 id="when-to-quarantine"><a class="header" href="#when-to-quarantine">When to Quarantine</a></h3>
+<p>Quarantine a test when:</p>
+<ul>
+<li>It blocks CI pipelines with intermittent failures</li>
+<li>It has a <code>Moderate</code> or higher flakiness category (&gt;= 0.05)</li>
+<li>It has 3+ consecutive failures with no code changes</li>
+</ul>
+<p>Do <strong>not</strong> quarantine a test when:</p>
+<ul>
+<li>It consistently fails — that is a real bug, not flakiness</li>
+<li>It just started failing after a recent change — investigate the change first</li>
+<li>The flakiness score is <code>Occasional</code> (&lt;0.05) — monitor it instead</li>
+</ul>
+<h3 id="auto-quarantine-thresholds"><a class="header" href="#auto-quarantine-thresholds">Auto-Quarantine Thresholds</a></h3>
+<p>If enabling auto-quarantine, tune the thresholds to avoid over-quarantining:</p>
+<pre><code class="language-toml">[quarantine]
+auto_quarantine = true
+
+[quarantine.threshold]
+consecutive_failures = 5    # stricter than default 3
+failure_rate = 0.30         # stricter than default 0.20
+flakiness_score = 0.20      # stricter than default 0.15
+</code></pre>
+<p>Start strict and relax gradually based on your team's tolerance.</p>
+<h3 id="quarantine-review-cadence"><a class="header" href="#quarantine-review-cadence">Quarantine Review Cadence</a></h3>
+<p>Set <code>max_quarantine_days</code> to force periodic review:</p>
+<pre><code class="language-toml">[quarantine]
+max_quarantine_days = 14  # review every 2 weeks
+</code></pre>
+<p>During review:</p>
+<ol>
+<li><code>cargo ninety-nine quarantine list</code> — see all quarantined tests</li>
+<li>Re-run quarantined tests: <code>cargo ninety-nine test "quarantined()"</code></li>
+<li>Remove fixed tests: <code>cargo ninety-nine quarantine remove &lt;test_name&gt;</code></li>
+</ol>
+<h2 id="ci-integration-1"><a class="header" href="#ci-integration-1">CI Integration</a></h2>
+<h3 id="recommended-ci-workflow"><a class="header" href="#recommended-ci-workflow">Recommended CI Workflow</a></h3>
+<p>Run <code>cargo-ninety-nine</code> as a separate CI job that does not block merges:</p>
+<pre><code class="language-yaml"># GitHub Actions example
+flaky-detection:
+  runs-on: ubuntu-latest
+  if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: dtolnay/rust-toolchain@stable
+    - run: cargo install cargo-ninety-nine
+    - run: cargo ninety-nine test -n 20
+    - run: cargo ninety-nine export junit report.xml
+    - uses: actions/upload-artifact@v4
+      with:
+        name: flaky-report
+        path: report.xml
+</code></pre>
+<blockquote>
+<p><strong>Warning:</strong> Avoid running flaky detection on every push. It adds significant CI time and produces noise. Schedule it nightly or weekly.</p>
+</blockquote>
+<h3 id="shared-storage-in-ci"><a class="header" href="#shared-storage-in-ci">Shared Storage in CI</a></h3>
+<p>For teams wanting to accumulate results across CI runs, use PostgreSQL:</p>
+<pre><code class="language-toml">[storage]
+backend = "Postgres"
+
+[storage.postgres]
+connection_string = "host=db.internal dbname=ninety_nine user=ci password=${NN_PG_PASSWORD}"
+pool_size = 4
+</code></pre>
+<p>Pass the password via environment variable in CI secrets.</p>
+<h2 id="performance-tuning"><a class="header" href="#performance-tuning">Performance Tuning</a></h2>
+<h3 id="parallel-execution"><a class="header" href="#parallel-execution">Parallel Execution</a></h3>
+<p>The <code>parallel_runs</code> setting controls how many tests execute concurrently:</p>
+<pre><code class="language-toml">[detection]
+parallel_runs = 4  # default: 3
+</code></pre>
+<p><strong>Guidelines:</strong></p>
+<ul>
+<li>Local development: set to number of CPU cores / 2</li>
+<li>CI (shared runners): set to 1–2 to avoid resource contention</li>
+<li>Dedicated CI machines: set to CPU count</li>
+</ul>
+<h3 id="reducing-test-discovery-time"><a class="header" href="#reducing-test-discovery-time">Reducing Test Discovery Time</a></h3>
+<p>Test discovery runs <code>cargo test --no-run</code>, which may trigger a full build. To speed this up:</p>
+<ul>
+<li>Keep your build cache warm (<code>target/</code> directory)</li>
+<li>Use incremental compilation</li>
+<li>Consider running detection on a subset: <code>cargo ninety-nine test "package(critical_module)"</code></li>
+</ul>
+<h3 id="database-performance"><a class="header" href="#database-performance">Database Performance</a></h3>
+<p><strong>SQLite</strong> (default):</p>
+<ul>
+<li>Excellent for single-machine use</li>
+<li>WAL mode is enabled automatically for concurrent reads</li>
+<li>Keep the database on a local SSD, not a network filesystem</li>
+</ul>
+<p><strong>PostgreSQL</strong>:</p>
+<ul>
+<li>Better for shared/team use and large datasets</li>
+<li>Tune <code>pool_size</code> based on concurrent CI jobs</li>
+<li>Use connection pooling (PgBouncer) for high-concurrency environments</li>
+</ul>
+<h2 id="interpreting-results"><a class="header" href="#interpreting-results">Interpreting Results</a></h2>
+<h3 id="understanding-bayesian-scores"><a class="header" href="#understanding-bayesian-scores">Understanding Bayesian Scores</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Score</th><th>Meaning</th><th>Action</th></tr></thead><tbody>
+<tr><td>&lt; 0.01</td><td>Stable — no flakiness detected</td><td>No action needed</td></tr>
+<tr><td>0.01 – 0.05</td><td>Occasional — rare failures</td><td>Monitor, investigate if trending up</td></tr>
+<tr><td>0.05 – 0.15</td><td>Moderate — noticeable flakiness</td><td>Investigate root cause, consider quarantine</td></tr>
+<tr><td>0.15 – 0.30</td><td>Frequent — regular failures</td><td>Fix or quarantine immediately</td></tr>
+<tr><td>&gt;= 0.30</td><td>Critical — failing more than passing</td><td>Urgent fix required</td></tr>
+</tbody></table>
+</div>
+<h3 id="acting-on-patterns"><a class="header" href="#acting-on-patterns">Acting on Patterns</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Pattern</th><th>Common Causes</th><th>Remediation</th></tr></thead><tbody>
+<tr><td>Time-of-day</td><td>Scheduled jobs competing for resources, time-sensitive assertions</td><td>Remove time dependencies, use <code>faketime</code> in tests</td></tr>
+<tr><td>Environmental</td><td>Missing dependencies in CI, different OS behavior</td><td>Ensure CI mirrors local dev environment, use containers</td></tr>
+<tr><td>Random</td><td>Race conditions, shared mutable state, non-deterministic ordering</td><td>Add synchronization, use deterministic seeds, isolate test state</td></tr>
+</tbody></table>
+</div>
+<h3 id="confidence-and-sample-size"><a class="header" href="#confidence-and-sample-size">Confidence and Sample Size</a></h3>
+<p>Low confidence means the credible interval is wide — the true flakiness probability could be much higher or lower than the point estimate. Before acting on a score:</p>
+<ul>
+<li><strong>High confidence (&gt;0.95):</strong> Act on the score directly</li>
+<li><strong>Moderate confidence (0.80–0.95):</strong> Run more iterations to confirm</li>
+<li><strong>Low confidence (&lt;0.80):</strong> Too few runs to draw conclusions, need more data</li>
+</ul>
+<h2 id="migrating-from-sqlite-to-postgresql"><a class="header" href="#migrating-from-sqlite-to-postgresql">Migrating from SQLite to PostgreSQL</a></h2>
+<ol>
+<li>
+<p>Export current data:</p>
+<pre><code class="language-bash">cargo ninety-nine export json current-data.json
+</code></pre>
+</li>
+<li>
+<p>Update configuration:</p>
+<pre><code class="language-toml">[storage]
+backend = "Postgres"
+
+[storage.postgres]
+connection_string = "host=localhost dbname=ninety_nine"
+pool_size = 4
+</code></pre>
+</li>
+<li>
+<p>Run a fresh detection pass to populate the new database:</p>
+<pre><code class="language-bash">cargo ninety-nine test -n 20
+</code></pre>
+</li>
+</ol>
+<blockquote>
+<p><strong>Note:</strong> There is no automatic migration tool. Historical run data is not transferred — only flakiness scores and quarantine state can be preserved via JSON export. The new database will build fresh statistics from subsequent runs.</p>
+</blockquote>
+<h2 id="team-workflows"><a class="header" href="#team-workflows">Team Workflows</a></h2>
+<h3 id="flaky-test-triage"><a class="header" href="#flaky-test-triage">Flaky Test Triage</a></h3>
+<p>Establish a regular triage process:</p>
+<ol>
+<li><strong>Weekly:</strong> Review <code>cargo ninety-nine status</code> output</li>
+<li><strong>Per-sprint:</strong> Assign <code>Moderate</code>+ flaky tests to developers</li>
+<li><strong>Per-release:</strong> Clear all <code>Frequent</code>/<code>Critical</code> tests before release</li>
+</ol>
+<h3 id="filter-expressions-for-triage"><a class="header" href="#filter-expressions-for-triage">Filter Expressions for Triage</a></h3>
+<pre><code class="language-bash"># Show only flaky tests
+cargo ninety-nine test "flaky()"
+
+# Focus on a specific package
+cargo ninety-nine test "package(api) &amp; flaky()"
+
+# Exclude already-quarantined tests
+cargo ninety-nine test "flaky() &amp; !quarantined()"
+</code></pre>
+<h3 id="using-json-output-for-automation"><a class="header" href="#using-json-output-for-automation">Using JSON Output for Automation</a></h3>
+<pre><code class="language-bash"># Export status as JSON for dashboards
+cargo ninety-nine --output json status &gt; flaky-status.json
+
+# Parse with jq
+cat flaky-status.json | jq '.[] | select(.probability_flaky &gt; 0.1)'
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<p>Common issues and their solutions when using <code>cargo-ninety-nine</code>.</p>
+<h2 id="installation-issues"><a class="header" href="#installation-issues">Installation Issues</a></h2>
+<h3 id="no-test-runner-available"><a class="header" href="#no-test-runner-available"><code>no test runner available</code></a></h3>
+<pre><code>error: no test runner available: install cargo-nextest or use cargo test
+</code></pre>
+<p><strong>Cause:</strong> Neither <code>cargo-nextest</code> nor <code>cargo test</code> was found on the system PATH.</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Install cargo-nextest: <code>cargo install cargo-nextest</code></li>
+<li>Verify Rust toolchain is installed: <code>rustup show</code></li>
+<li>Ensure <code>~/.cargo/bin</code> is in your PATH</li>
+</ol>
+<h3 id="binary-discovery-failed"><a class="header" href="#binary-discovery-failed"><code>binary discovery failed</code></a></h3>
+<pre><code>error: binary discovery failed: ...
+</code></pre>
+<p><strong>Cause:</strong> <code>cargo test --no-run</code> failed to compile or list test binaries.</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Run <code>cargo test --no-run</code> manually to see the full compiler output</li>
+<li>Fix any compilation errors in your project</li>
+<li>Ensure you are running from the project root (or use <code>--project-dir</code>)</li>
+</ol>
+<h2 id="configuration-issues"><a class="header" href="#configuration-issues">Configuration Issues</a></h2>
+<h3 id="failed-to-parse-config"><a class="header" href="#failed-to-parse-config"><code>failed to parse config</code></a></h3>
+<pre><code>error: failed to parse config: ...
+</code></pre>
+<p><strong>Cause:</strong> The <code>.ninety-nine.toml</code> file contains invalid TOML syntax or unrecognized fields.</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Validate your TOML syntax: check for unclosed quotes, missing brackets, or incorrect indentation</li>
+<li>Re-generate a fresh config: <code>cargo ninety-nine init --force</code></li>
+<li>Compare against the default config shown in the <a href="guides/../reference/configuration.html">Configuration Reference</a></li>
+</ol>
+<h3 id="postgres-backend-selected-but-no-config"><a class="header" href="#postgres-backend-selected-but-no-config"><code>postgres backend selected but no config</code></a></h3>
+<pre><code>error: invalid configuration: postgres backend selected but no [storage.postgres] config provided
+</code></pre>
+<p><strong>Cause:</strong> <code>storage.backend</code> is set to <code>"Postgres"</code> but the <code>[storage.postgres]</code> section is missing.</p>
+<p><strong>Solution:</strong> Add the PostgreSQL configuration:</p>
+<pre><code class="language-toml">[storage]
+backend = "Postgres"
+
+[storage.postgres]
+connection_string = "host=localhost dbname=ninety_nine user=postgres"
+pool_size = 4
+</code></pre>
+<h2 id="test-execution-issues"><a class="header" href="#test-execution-issues">Test Execution Issues</a></h2>
+<h3 id="tests-not-discovered"><a class="header" href="#tests-not-discovered">Tests not discovered</a></h3>
+<p><strong>Symptom:</strong> <code>cargo ninety-nine test</code> reports 0 tests found.</p>
+<p><strong>Causes and solutions:</strong></p>
+<ol>
+<li><strong>No test targets:</strong> Ensure your project has <code>#[test]</code> functions or files in <code>tests/</code></li>
+<li><strong>Filter too restrictive:</strong> Remove or widen your filter expression</li>
+<li><strong>Wrong project directory:</strong> Use <code>--project-dir /path/to/project</code></li>
+<li><strong>Benchmark-only binaries:</strong> Only <code>#[test]</code> functions are discovered, not benchmarks</li>
+</ol>
+<h3 id="test-timeouts"><a class="header" href="#test-timeouts">Test timeouts</a></h3>
+<p><strong>Symptom:</strong> Tests that normally pass are reported as <code>Timeout</code>.</p>
+<p><strong>Causes and solutions:</strong></p>
+<ol>
+<li><strong>Default timeout too low:</strong> The default is 300 seconds. For long-running tests, increase it in config:
+<pre><code class="language-toml">[detection]
+# Timeout is controlled via the execution config
+</code></pre>
+</li>
+<li><strong>CI resource constraints:</strong> CI environments often have fewer resources. Check <code>memory_gb</code> and <code>cpu_count</code> in the environment report</li>
+<li><strong>Test contention:</strong> Reduce <code>parallel_runs</code> to lower resource contention:
+<pre><code class="language-toml">[detection]
+parallel_runs = 1
+</code></pre>
+</li>
+</ol>
+<h3 id="all-tests-show-as-flaky"><a class="header" href="#all-tests-show-as-flaky">All tests show as flaky</a></h3>
+<p><strong>Symptom:</strong> Every test gets a non-trivial flakiness score.</p>
+<p><strong>Causes and solutions:</strong></p>
+<ol>
+<li><strong>Too few iterations:</strong> With only a few runs, the Bayesian prior has outsized influence. Increase <code>min_runs</code>:
+<pre><code class="language-toml">[detection]
+min_runs = 20
+</code></pre>
+</li>
+<li><strong>Confidence threshold too low:</strong> Raise the threshold to require stronger evidence:
+<pre><code class="language-toml">[detection]
+confidence_threshold = 0.99
+</code></pre>
+</li>
+<li><strong>Systemic failures:</strong> If tests are failing due to environment issues (missing database, network), fix the root cause rather than tuning thresholds</li>
+</ol>
+<h2 id="storage-issues"><a class="header" href="#storage-issues">Storage Issues</a></h2>
+<h3 id="sqlite-database-locked"><a class="header" href="#sqlite-database-locked">SQLite database locked</a></h3>
+<p><strong>Symptom:</strong> <code>storage error: database is locked</code></p>
+<p><strong>Causes and solutions:</strong></p>
+<ol>
+<li><strong>Concurrent access:</strong> Another <code>cargo-ninety-nine</code> process may be running. WAL mode should handle most concurrent access, but heavy parallel writes can still lock</li>
+<li><strong>NFS/network filesystem:</strong> SQLite does not work reliably over network filesystems. Use a local path or switch to PostgreSQL</li>
+<li><strong>Stale lock:</strong> If the process crashed, the lock file may remain. Delete <code>ninety-nine.db-wal</code> and <code>ninety-nine.db-shm</code> next to the database</li>
+</ol>
+<h3 id="postgresql-connection-failures"><a class="header" href="#postgresql-connection-failures">PostgreSQL connection failures</a></h3>
+<p><strong>Symptom:</strong> <code>postgres storage error: connection refused</code> or similar</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Verify PostgreSQL is running: <code>pg_isready</code></li>
+<li>Check connection string format: <code>host=localhost port=5432 dbname=ninety_nine user=postgres password=...</code></li>
+<li>Ensure the database exists: <code>createdb ninety_nine</code></li>
+<li>Check network/firewall settings for remote connections</li>
+<li>Verify pool size is reasonable for your connection limits</li>
+</ol>
+<h3 id="data-retention-and-database-size"><a class="header" href="#data-retention-and-database-size">Data retention and database size</a></h3>
+<p><strong>Symptom:</strong> Database growing too large.</p>
+<p><strong>Solution:</strong> Configure <code>retention_days</code> to automatically purge old data:</p>
+<pre><code class="language-toml">[storage]
+retention_days = 30  # default: 90
+</code></pre>
+<p>Data is purged at the end of each <code>test</code> run.</p>
+<h2 id="filter-dsl-issues"><a class="header" href="#filter-dsl-issues">Filter DSL Issues</a></h2>
+<h3 id="filter-parse-error"><a class="header" href="#filter-parse-error"><code>filter parse error</code></a></h3>
+<p><strong>Symptom:</strong> <code>error: filter parse error: ...</code></p>
+<p><strong>Common mistakes:</strong></p>
+<ol>
+<li><strong>Missing parentheses on predicates:</strong> Use <code>flaky()</code> not <code>flaky</code></li>
+<li><strong>Wrong operator syntax:</strong> Use <code>&amp;</code> for AND, <code>|</code> for OR, <code>!</code> for NOT</li>
+<li><strong>Unclosed parentheses:</strong> Ensure every <code>(</code> has a matching <code>)</code></li>
+<li><strong>Invalid regex in test():</strong> The pattern must be a valid Rust regex</li>
+</ol>
+<p><strong>Valid examples:</strong></p>
+<pre><code>flaky()
+test(.*timeout.*)
+package(auth) &amp; !quarantined()
+(flaky() | test(.*race.*)) &amp; package(core)
+</code></pre>
+<h2 id="ci-integration-issues"><a class="header" href="#ci-integration-issues">CI Integration Issues</a></h2>
+<h3 id="workflow-not-triggering"><a class="header" href="#workflow-not-triggering">Workflow not triggering</a></h3>
+<p><strong>Symptom:</strong> Generated CI workflow never runs.</p>
+<p><strong>Solutions:</strong></p>
+<ul>
+<li><strong>GitHub Actions:</strong> Ensure the workflow file is at <code>.github/workflows/</code>. Check that scheduled triggers are on the default branch</li>
+<li><strong>GitLab CI:</strong> Ensure the pipeline is configured to run on schedules. Check that <code>rules</code> allow scheduled execution</li>
+</ul>
+<h3 id="ci-environment-not-detected"><a class="header" href="#ci-environment-not-detected">CI environment not detected</a></h3>
+<p><strong>Symptom:</strong> <code>is_ci</code> shows <code>false</code> in CI.</p>
+<p><strong>Cause:</strong> The CI provider's environment variable is not set or not recognized.</p>
+<p><strong>Recognized variables:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Variable</th><th>Provider</th></tr></thead><tbody>
+<tr><td><code>GITHUB_ACTIONS</code></td><td>GitHub Actions</td></tr>
+<tr><td><code>GITLAB_CI</code></td><td>GitLab CI</td></tr>
+<tr><td><code>JENKINS_URL</code></td><td>Jenkins</td></tr>
+<tr><td><code>CIRCLECI</code></td><td>CircleCI</td></tr>
+<tr><td><code>TF_BUILD</code></td><td>Azure DevOps</td></tr>
+<tr><td><code>BUILDKITE</code></td><td>Buildkite</td></tr>
+</tbody></table>
+</div>
+<h2 id="export-issues"><a class="header" href="#export-issues">Export Issues</a></h2>
+<h3 id="empty-export-files"><a class="header" href="#empty-export-files">Empty export files</a></h3>
+<p><strong>Symptom:</strong> Export produces a file with no test data.</p>
+<p><strong>Cause:</strong> No flakiness scores have been computed yet.</p>
+<p><strong>Solution:</strong> Run <code>cargo ninety-nine test</code> at least once before exporting. Scores are computed and stored during the test run.</p>
+<h3 id="junit-xml-not-recognized"><a class="header" href="#junit-xml-not-recognized">JUnit XML not recognized</a></h3>
+<p><strong>Symptom:</strong> CI system does not parse the JUnit XML output.</p>
+<p><strong>Solution:</strong> Ensure the export path matches what your CI expects. For GitHub Actions:</p>
+<pre><code class="language-yaml">- uses: dorny/test-reporter@v1
+  with:
+    artifact: ninety-nine-report
+    name: Flaky Tests
+    path: report.xml
+    reporter: java-junit
+</code></pre>
+<h2 id="getting-more-information"><a class="header" href="#getting-more-information">Getting More Information</a></h2>
+<p>Enable verbose output for detailed tracing:</p>
+<pre><code class="language-bash">cargo ninety-nine --verbose test
+</code></pre>
+<p>This sets the tracing subscriber to <code>debug</code> level, showing:</p>
+<ul>
+<li>Binary discovery details</li>
+<li>Test listing parsing</li>
+<li>Individual test execution results</li>
+<li>Storage operations</li>
+<li>Bayesian computation details</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="types-reference"><a class="header" href="#types-reference">Types Reference</a></h1>
+<p>This chapter documents the core types used throughout <code>cargo-ninety-nine</code>.</p>
+<h2 id="test-execution"><a class="header" href="#test-execution">Test Execution</a></h2>
+<h3 id="testrun"><a class="header" href="#testrun"><code>TestRun</code></a></h3>
+<p>A single test execution record with full metadata.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestRun {
+    pub id: Uuid,
+    pub test_name: TestName,
+    pub test_path: PathBuf,
+    pub outcome: TestOutcome,
+    pub duration: Duration,
+    pub timestamp: DateTime&lt;Utc&gt;,
+    pub commit_hash: String,
+    pub branch: String,
+    pub environment: TestEnvironment,
+    pub retry_count: u32,
+    pub error_message: Option&lt;String&gt;,
+    pub stack_trace: Option&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>Uuid</code></td><td>Unique identifier for this run</td></tr>
+<tr><td><code>test_name</code></td><td><code>TestName</code></td><td>Type-safe test name</td></tr>
+<tr><td><code>test_path</code></td><td><code>PathBuf</code></td><td>Path to the test binary</td></tr>
+<tr><td><code>outcome</code></td><td><code>TestOutcome</code></td><td>Result of the execution</td></tr>
+<tr><td><code>duration</code></td><td><code>Duration</code></td><td>Wall-clock execution time</td></tr>
+<tr><td><code>timestamp</code></td><td><code>DateTime&lt;Utc&gt;</code></td><td>When the run occurred</td></tr>
+<tr><td><code>commit_hash</code></td><td><code>String</code></td><td>Git commit at time of run</td></tr>
+<tr><td><code>branch</code></td><td><code>String</code></td><td>Git branch at time of run</td></tr>
+<tr><td><code>environment</code></td><td><code>TestEnvironment</code></td><td>Execution environment details</td></tr>
+<tr><td><code>retry_count</code></td><td><code>u32</code></td><td>Number of retries before this result</td></tr>
+<tr><td><code>error_message</code></td><td><code>Option&lt;String&gt;</code></td><td>Failure message, if any</td></tr>
+<tr><td><code>stack_trace</code></td><td><code>Option&lt;String&gt;</code></td><td>Stack trace on panic/failure</td></tr>
+</tbody></table>
+</div>
+<h3 id="testoutcome"><a class="header" href="#testoutcome"><code>TestOutcome</code></a></h3>
+<p>Classification of a test execution result.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TestOutcome {
+    Passed,
+    Failed,
+    Ignored,
+    Timeout,
+    Panic,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>Passed</code></td><td>Test completed successfully (exit code 0)</td></tr>
+<tr><td><code>Failed</code></td><td>Test assertion failed (non-zero exit, no panic)</td></tr>
+<tr><td><code>Ignored</code></td><td>Test marked with <code>#[ignore]</code></td></tr>
+<tr><td><code>Timeout</code></td><td>Test exceeded the configured timeout</td></tr>
+<tr><td><code>Panic</code></td><td>Test panicked (detected via <code>panicked at</code> in output)</td></tr>
+</tbody></table>
+</div>
+<p>Implements <code>Display</code> and <code>FromStr</code> for serialization. Display values: <code>"passed"</code>, <code>"failed"</code>, <code>"ignored"</code>, <code>"timeout"</code>, <code>"panic"</code>.</p>
+<h3 id="testenvironment"><a class="header" href="#testenvironment"><code>TestEnvironment</code></a></h3>
+<p>Captures the environment where tests execute, used for pattern correlation.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestEnvironment {
+    pub os: String,
+    pub rust_version: String,
+    pub cpu_count: u32,
+    pub memory_gb: f64,
+    pub is_ci: bool,
+    pub ci_provider: Option&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Auto-detected at runtime from the host system. The <code>is_ci</code> field is inferred from environment variables (<code>GITHUB_ACTIONS</code>, <code>GITLAB_CI</code>, <code>JENKINS_URL</code>, <code>CIRCLECI</code>, <code>TF_BUILD</code>, <code>BUILDKITE</code>).</p>
+<h3 id="testname"><a class="header" href="#testname"><code>TestName</code></a></h3>
+<p>Newtype wrapper providing type-safe test names. Prevents accidental confusion with branch names, commit hashes, or other string fields.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestName(String);
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Conversions:</strong></p>
+<ul>
+<li><code>From&lt;String&gt;</code>, <code>From&lt;&amp;str&gt;</code> — construct from strings</li>
+<li><code>Deref&lt;Target = str&gt;</code> — borrow as <code>&amp;str</code></li>
+<li><code>AsRef&lt;str&gt;</code> — reference conversion</li>
+<li><code>Display</code> — format for output</li>
+<li><code>PartialEq&lt;str&gt;</code>, <code>PartialEq&lt;&amp;str&gt;</code> — compare with string values</li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>into_inner(self) -&gt; String</code> — consume and return the inner string</li>
+</ul>
+<h2 id="flakiness-detection"><a class="header" href="#flakiness-detection">Flakiness Detection</a></h2>
+<h3 id="flakinessscore"><a class="header" href="#flakinessscore"><code>FlakinessScore</code></a></h3>
+<p>The primary output of the Bayesian detection engine. Contains the computed probability that a test is flaky along with statistical parameters.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct FlakinessScore {
+    pub test_name: TestName,
+    pub probability_flaky: f64,
+    pub confidence: f64,
+    pub pass_rate: f64,
+    pub fail_rate: f64,
+    pub total_runs: u64,
+    pub consecutive_failures: u32,
+    pub last_updated: DateTime&lt;Utc&gt;,
+    pub bayesian_params: BayesianParams,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Range</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>probability_flaky</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Posterior mean P(failure)</td></tr>
+<tr><td><code>confidence</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>1 - credible interval width (higher = more certain)</td></tr>
+<tr><td><code>pass_rate</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Fraction of runs that passed</td></tr>
+<tr><td><code>fail_rate</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Fraction of runs that failed (= 1 - pass_rate)</td></tr>
+<tr><td><code>total_runs</code></td><td><code>u64</code></td><td>—</td><td>Number of non-ignored executions</td></tr>
+<tr><td><code>consecutive_failures</code></td><td><code>u32</code></td><td>—</td><td>Trailing failure streak count</td></tr>
+</tbody></table>
+</div>
+<h3 id="bayesianparams"><a class="header" href="#bayesianparams"><code>BayesianParams</code></a></h3>
+<p>Full Bayesian computation state stored for auditability.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct BayesianParams {
+    pub alpha: f64,
+    pub beta: f64,
+    pub posterior_mean: f64,
+    pub posterior_variance: f64,
+    pub credible_interval_lower: f64,
+    pub credible_interval_upper: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>alpha</code></td><td>Beta distribution shape parameter (prior + failures)</td></tr>
+<tr><td><code>beta</code></td><td>Beta distribution shape parameter (prior + passes)</td></tr>
+<tr><td><code>posterior_mean</code></td><td><code>alpha / (alpha + beta)</code></td></tr>
+<tr><td><code>posterior_variance</code></td><td><code>(alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1))</code></td></tr>
+<tr><td><code>credible_interval_lower</code></td><td>2.5th percentile of posterior Beta distribution</td></tr>
+<tr><td><code>credible_interval_upper</code></td><td>97.5th percentile of posterior Beta distribution</td></tr>
+</tbody></table>
+</div>
+<h3 id="flakinesscategory"><a class="header" href="#flakinesscategory"><code>FlakinessCategory</code></a></h3>
+<p>Human-readable classification of flakiness severity.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum FlakinessCategory {
+    Stable,
+    Occasional,
+    Moderate,
+    Frequent,
+    Critical,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Score Range</th><th>Console Color</th></tr></thead><tbody>
+<tr><td>Stable</td><td>&lt; 0.01</td><td>Green</td></tr>
+<tr><td>Occasional</td><td>0.01 – 0.05</td><td>Yellow</td></tr>
+<tr><td>Moderate</td><td>0.05 – 0.15</td><td>Orange</td></tr>
+<tr><td>Frequent</td><td>0.15 – 0.30</td><td>Red</td></tr>
+<tr><td>Critical</td><td>&gt;= 0.30</td><td>Dark Red</td></tr>
+</tbody></table>
+</div>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>from_score(score: f64) -&gt; Self</code> — classify a probability value</li>
+<li><code>label(&amp;self) -&gt; &amp;'static str</code> — human-readable label</li>
+</ul>
+<h2 id="sessions"><a class="header" href="#sessions">Sessions</a></h2>
+<h3 id="activesession"><a class="header" href="#activesession"><code>ActiveSession</code></a></h3>
+<p>Represents a running test session. Created via <code>start()</code>, consumed by <code>into_run_session()</code> to produce a storable <code>RunSession</code>. Ownership semantics prevent double-finish bugs.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ActiveSession { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Methods:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Signature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>start</code></td><td><code>fn start(commit_hash: &amp;str, branch: &amp;str) -&gt; Self</code></td><td>Create a new session</td></tr>
+<tr><td><code>id</code></td><td><code>fn id(&amp;self) -&gt; &amp;Uuid</code></td><td>Get session UUID</td></tr>
+<tr><td><code>into_run_session</code></td><td><code>fn into_run_session(self) -&gt; RunSession</code></td><td>Convert to storable form (consuming)</td></tr>
+<tr><td><code>to_run_session</code></td><td><code>fn to_run_session(&amp;self) -&gt; RunSession</code></td><td>Convert to storable form (borrowing)</td></tr>
+</tbody></table>
+</div>
+<h3 id="runsession"><a class="header" href="#runsession"><code>RunSession</code></a></h3>
+<p>A session record suitable for storage. May represent a running or completed session.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct RunSession {
+    pub id: Uuid,
+    pub started_at: DateTime&lt;Utc&gt;,
+    pub finished_at: Option&lt;DateTime&lt;Utc&gt;&gt;,
+    pub test_count: u32,
+    pub flaky_count: u32,
+    pub commit_hash: String,
+    pub branch: String,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="quarantineentry"><a class="header" href="#quarantineentry"><code>QuarantineEntry</code></a></h3>
+<p>A quarantined test record.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct QuarantineEntry {
+    pub test_name: TestName,
+    pub quarantined_at: DateTime&lt;Utc&gt;,
+    pub reason: String,
+    pub flakiness_score: f64,
+    pub auto_quarantined: bool,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+<h3 id="trenddirection"><a class="header" href="#trenddirection"><code>TrendDirection</code></a></h3>
+<p>Direction of flakiness change over time.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TrendDirection {
+    Improving,
+    Stable,
+    Degrading,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>A delta exceeding 0.05 (5%) triggers <code>Improving</code> (decreased flakiness) or <code>Degrading</code> (increased flakiness). Otherwise <code>Stable</code>.</p>
+<h3 id="trendsummary"><a class="header" href="#trendsummary"><code>TrendSummary</code></a></h3>
+<p>Trend analysis result comparing recent vs. historical flakiness.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TrendSummary {
+    pub test_name: TestName,
+    pub direction: TrendDirection,
+    pub recent_score: f64,
+    pub previous_score: f64,
+    pub score_delta: f64,
+    pub window_runs: u64,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="failurepattern"><a class="header" href="#failurepattern"><code>FailurePattern</code></a></h3>
+<p>A detected failure pattern with correlation strength.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct FailurePattern {
+    pub pattern_type: PatternType,
+    pub occurrences: u32,
+    pub correlation: f64,
+    pub examples: Vec&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="patterntype"><a class="header" href="#patterntype"><code>PatternType</code></a></h3>
+<p>Classification of detected failure patterns.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum PatternType {
+    TimeOfDay,
+    Environmental,
+    Random,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Trigger</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>TimeOfDay</code></td><td>Failure concentration &gt; 3x expected in a specific hour</td><td>Failures cluster at a particular time</td></tr>
+<tr><td><code>Environmental</code></td><td>CI vs. local failure rate difference &gt; 15%</td><td>Environment-specific failures</td></tr>
+<tr><td><code>Random</code></td><td>No pattern detected</td><td>Failures appear randomly distributed</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="bayesian-detector-api"><a class="header" href="#bayesian-detector-api">Bayesian Detector API</a></h1>
+<p>The <code>BayesianDetector</code> is the core statistical engine that computes flakiness probabilities using Beta-Binomial conjugate inference.</p>
+<h2 id="bayesiandetector"><a class="header" href="#bayesiandetector"><code>BayesianDetector</code></a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct BayesianDetector {
+    prior_alpha: f64,     // default: 1.0 (uniform prior)
+    prior_beta: f64,      // default: 1.0 (uniform prior)
+    confidence_threshold: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="constructor"><a class="header" href="#constructor">Constructor</a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub const fn new(confidence_threshold: f64) -&gt; Self
+<span class="boring">}</span></code></pre></pre>
+<p>Creates a detector with a uniform Beta(1, 1) prior and the given confidence threshold.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>confidence_threshold</code></td><td><code>f64</code></td><td>Minimum confidence required to classify a test as flaky (typically 0.95)</td></tr>
+</tbody></table>
+</div>
+<h3 id="methods"><a class="header" href="#methods">Methods</a></h3>
+<h4 id="calculate_flakiness_score"><a class="header" href="#calculate_flakiness_score"><code>calculate_flakiness_score</code></a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn calculate_flakiness_score(
+    &amp;self,
+    test_name: &amp;str,
+    runs: &amp;[TestRun],
+) -&gt; FlakinessScore
+<span class="boring">}</span></code></pre></pre>
+<p>Computes a <code>FlakinessScore</code> from a set of test runs using Bayesian inference.</p>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Count passes and failures from <code>runs</code> (ignoring <code>Ignored</code> outcomes; <code>Failed</code>, <code>Panic</code>, and <code>Timeout</code> all count as failures)</li>
+<li>Update the Beta prior: <code>alpha = prior_alpha + failures</code>, <code>beta = prior_beta + passes</code></li>
+<li>Compute posterior mean: <code>alpha / (alpha + beta)</code></li>
+<li>Compute posterior variance: <code>(alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1))</code></li>
+<li>Compute 95% credible interval via <code>Beta::inverse_cdf(0.025)</code> and <code>Beta::inverse_cdf(0.975)</code></li>
+<li>Confidence = <code>1.0 - (upper - lower)</code> (narrower interval = higher confidence)</li>
+<li>Count consecutive trailing failures</li>
+</ol>
+<p><strong>Returns:</strong> A <code>FlakinessScore</code> with all computed fields populated.</p>
+<h4 id="is_flaky"><a class="header" href="#is_flaky"><code>is_flaky</code></a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn is_flaky(&amp;self, score: &amp;FlakinessScore) -&gt; bool
+<span class="boring">}</span></code></pre></pre>
+<p>Determines whether a test should be classified as flaky.</p>
+<p><strong>Criteria:</strong> Returns <code>true</code> when <strong>both</strong> conditions are met:</p>
+<ul>
+<li><code>score.probability_flaky &gt; 0.01</code> — non-trivial failure probability</li>
+<li><code>score.confidence &gt;= confidence_threshold</code> — sufficient statistical certainty</li>
+</ul>
+<h2 id="internal-functions"><a class="header" href="#internal-functions">Internal Functions</a></h2>
+<p>These are not public but documented for understanding the algorithm:</p>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Purpose</th></tr></thead><tbody>
+<tr><td><code>count_outcomes(runs)</code></td><td>Counts passes and failures, ignoring <code>Ignored</code> outcomes</td></tr>
+<tr><td><code>count_consecutive_trailing_failures(runs)</code></td><td>Counts failures from the end of the run list until a pass is encountered</td></tr>
+<tr><td><code>credible_interval(alpha, beta)</code></td><td>Computes 2.5th–97.5th percentile interval using the <code>statrs</code> Beta distribution</td></tr>
+</tbody></table>
+</div>
+<h2 id="usage-example"><a class="header" href="#usage-example">Usage Example</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use cargo_ninety_nine::detector::BayesianDetector;
+
+let detector = BayesianDetector::new(0.95);
+let score = detector.calculate_flakiness_score("tests::my_test", &amp;runs);
+
+if detector.is_flaky(&amp;score) {
+    println!("{} is flaky (P={:.2})", score.test_name, score.probability_flaky);
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="statistical-properties"><a class="header" href="#statistical-properties">Statistical Properties</a></h2>
+<p>The detector guarantees the following properties (verified by property-based tests):</p>
+<ul>
+<li><code>probability_flaky</code> is always in <code>[0.0, 1.0]</code></li>
+<li><code>confidence</code> is always in <code>[0.0, 1.0]</code></li>
+<li>More failures relative to passes always produces a higher <code>probability_flaky</code></li>
+<li>The credible interval is always valid: <code>lower &gt;= 0.0</code>, <code>upper &lt;= 1.0</code>, <code>lower &lt;= upper</code></li>
+</ul>
+<p>See the <a href="api/../reference/bayesian.html">Bayesian Detection</a> reference for the full mathematical model.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="analysis-api"><a class="header" href="#analysis-api">Analysis API</a></h1>
+<p>The analysis module provides three capabilities: failure rate computation, trend detection, and failure pattern recognition.</p>
+<h2 id="failure-rate"><a class="header" href="#failure-rate">Failure Rate</a></h2>
+<h3 id="failure_rate"><a class="header" href="#failure_rate"><code>failure_rate</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn failure_rate(runs: &amp;[&amp;TestRun]) -&gt; f64
+<span class="boring">}</span></code></pre></pre>
+<p>Computes the fraction of runs that resulted in a failure outcome.</p>
+<div class="table-wrapper"><table><thead><tr><th>Outcome</th><th>Counted as</th></tr></thead><tbody>
+<tr><td><code>Passed</code></td><td>Non-failure</td></tr>
+<tr><td><code>Ignored</code></td><td>Non-failure</td></tr>
+<tr><td><code>Failed</code></td><td>Failure</td></tr>
+<tr><td><code>Panic</code></td><td>Failure</td></tr>
+<tr><td><code>Timeout</code></td><td>Failure</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns:</strong> A value in <code>[0.0, 1.0]</code>. Returns <code>0.0</code> for empty input.</p>
+<h2 id="trend-detection"><a class="header" href="#trend-detection">Trend Detection</a></h2>
+<h3 id="calculate_trend"><a class="header" href="#calculate_trend"><code>calculate_trend</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn calculate_trend(
+    test_name: &amp;str,
+    runs: &amp;[TestRun],
+    window: u32,
+) -&gt; Option&lt;TrendSummary&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Analyzes the direction of flakiness change by comparing recent runs against historical runs.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td><code>&amp;str</code></td><td>Name of the test being analyzed</td></tr>
+<tr><td><code>runs</code></td><td><code>&amp;[TestRun]</code></td><td>Runs to analyze (newest first not required)</td></tr>
+<tr><td><code>window</code></td><td><code>u32</code></td><td>Maximum number of runs to consider</td></tr>
+</tbody></table>
+</div>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Takes up to <code>window</code> most recent runs</li>
+<li>Requires a minimum of 4 runs; returns <code>None</code> otherwise</li>
+<li>Splits runs at the midpoint into "recent" (first half) and "previous" (second half)</li>
+<li>Computes failure rate for each half</li>
+<li>Classifies direction based on the delta:
+<ul>
+<li>Delta &lt; -0.05 (5% improvement): <code>Improving</code></li>
+<li>Delta &gt; +0.05 (5% regression): <code>Degrading</code></li>
+<li>Otherwise: <code>Stable</code></li>
+</ul>
+</li>
+</ol>
+<p><strong>Returns:</strong> <code>Some(TrendSummary)</code> with direction, scores, and delta, or <code>None</code> if insufficient data.</p>
+<h2 id="duration-regression"><a class="header" href="#duration-regression">Duration Regression</a></h2>
+<h3 id="detect_duration_regressions"><a class="header" href="#detect_duration_regressions"><code>detect_duration_regressions</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_duration_regressions(
+    test_name: &amp;str,
+    runs: &amp;[TestRun],
+    min_history: usize,
+    threshold_std_devs: f64,
+) -&gt; Option&lt;DurationRegression&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Detects if the most recent test run is significantly slower than historical runs.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td><code>&amp;str</code></td><td>Name of the test</td></tr>
+<tr><td><code>runs</code></td><td><code>&amp;[TestRun]</code></td><td>Historical runs (at least <code>min_history</code> required)</td></tr>
+<tr><td><code>min_history</code></td><td><code>usize</code></td><td>Minimum number of historical runs required</td></tr>
+<tr><td><code>threshold_std_devs</code></td><td><code>f64</code></td><td>Number of standard deviations above mean to trigger regression</td></tr>
+</tbody></table>
+</div>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Returns <code>None</code> if fewer than <code>min_history</code> runs</li>
+<li>Computes mean and standard deviation of all run durations</li>
+<li>Returns <code>None</code> if standard deviation is near zero (all durations constant)</li>
+<li>Checks if the latest run duration exceeds <code>mean + (threshold × std_dev)</code></li>
+<li>Returns <code>DurationRegression</code> with deviation statistics</li>
+</ol>
+<h3 id="durationregression"><a class="header" href="#durationregression"><code>DurationRegression</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct DurationRegression {
+    pub test_name: String,
+    pub current_ms: i64,
+    pub mean_ms: i64,
+    pub std_dev_ms: i64,
+    pub deviation_factor: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>current_ms</code></td><td>Duration of the latest run in milliseconds</td></tr>
+<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds</td></tr>
+<tr><td><code>std_dev_ms</code></td><td>Historical standard deviation in milliseconds</td></tr>
+<tr><td><code>deviation_factor</code></td><td>How many standard deviations above mean: <code>(current - mean) / std_dev</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="pattern-detection"><a class="header" href="#pattern-detection">Pattern Detection</a></h2>
+<h3 id="detect_patterns"><a class="header" href="#detect_patterns"><code>detect_patterns</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_patterns(runs: &amp;[TestRun]) -&gt; Vec&lt;FailurePattern&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Scans test runs for recurring failure patterns. Returns all detected patterns.</p>
+<p><strong>Detection strategies:</strong></p>
+<h4 id="time-of-day-pattern"><a class="header" href="#time-of-day-pattern">Time-of-Day Pattern</a></h4>
+<p>Bins all failures by hour (0–23). If any hour contains more than 3x the expected random concentration, a <code>TimeOfDay</code> pattern is reported.</p>
+<ul>
+<li>Correlation value: ratio of peak-hour failures to total failures</li>
+<li>Examples: formatted as <code>"Hour HH: N failures"</code> for the peak hour</li>
+</ul>
+<h4 id="environmental-pattern"><a class="header" href="#environmental-pattern">Environmental Pattern</a></h4>
+<p>Compares failure rates between CI and local environments. If the difference exceeds 15%, an <code>Environmental</code> pattern is reported.</p>
+<ul>
+<li>Correlation value: absolute difference between CI and local failure rates</li>
+<li>Examples: formatted as <code>"CI failure rate: X%, local: Y%"</code></li>
+</ul>
+<h4 id="random-fallback"><a class="header" href="#random-fallback">Random Fallback</a></h4>
+<p>If no time-of-day or environmental pattern is detected, a <code>Random</code> pattern is returned with correlation <code>0.0</code>, indicating failures appear uniformly distributed.</p>
+<h2 id="usage-example-1"><a class="header" href="#usage-example-1">Usage Example</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use cargo_ninety_nine::analysis::{calculate_trend, detect_patterns};
+use cargo_ninety_nine::analysis::duration::detect_duration_regressions;
+
+// Trend analysis
+if let Some(trend) = calculate_trend("tests::my_test", &amp;runs, 100) {
+    println!("Trend: {} (delta: {:.2})", trend.direction, trend.score_delta);
+}
+
+// Duration regression
+if let Some(reg) = detect_duration_regressions("tests::my_test", &amp;runs, 5, 2.0) {
+    println!("SLOW: {}ms vs mean {}ms ({:.1}x std_dev)",
+        reg.current_ms, reg.mean_ms, reg.deviation_factor);
+}
+
+// Pattern detection
+for pattern in detect_patterns(&amp;runs) {
+    println!("Pattern: {} (correlation: {:.2})", pattern.pattern_type, pattern.correlation);
+}
+<span class="boring">}</span></code></pre></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="filter-dsl-api"><a class="header" href="#filter-dsl-api">Filter DSL API</a></h1>
+<p>The filter module implements a small domain-specific language for selecting tests. It consists of four stages: tokenization, parsing, context building, and evaluation.</p>
+<h2 id="pipeline-overview"><a class="header" href="#pipeline-overview">Pipeline Overview</a></h2>
+<pre><code>input string → tokenize() → parse() → FilterExpr (AST)
+                                            ↓
+test metadata + EvalContext → eval() → bool (match/no-match)
+</code></pre>
+<h2 id="compilation"><a class="header" href="#compilation">Compilation</a></h2>
+<h3 id="compile_filter"><a class="header" href="#compile_filter"><code>compile_filter</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn compile_filter(input: &amp;str) -&gt; Result&lt;FilterExpr, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Compiles a filter expression string into an AST. This is the primary entry point for the filter DSL.</p>
+<p><strong>Errors:</strong> Returns <code>NinetyNineError::FilterParse</code> if the input is syntactically invalid.</p>
+<h3 id="build_eval_context"><a class="header" href="#build_eval_context"><code>build_eval_context</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn build_eval_context(
+    storage: &amp;impl Storage,
+    confidence: f64,
+) -&gt; Result&lt;EvalContext, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Pre-loads data from storage needed to evaluate predicates like <code>flaky()</code> and <code>quarantined()</code>.</p>
+<p>The context contains:</p>
+<ul>
+<li><strong>Flaky test set:</strong> tests where <code>probability_flaky &gt; 0.01</code> and <code>confidence &gt;= threshold</code></li>
+<li><strong>Quarantined test set:</strong> all currently quarantined tests</li>
+</ul>
+<h2 id="ast-types"><a class="header" href="#ast-types">AST Types</a></h2>
+<h3 id="filterexpr"><a class="header" href="#filterexpr"><code>FilterExpr</code></a></h3>
+<p>The abstract syntax tree for filter expressions.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum FilterExpr {
+    And(Vec&lt;FilterExpr&gt;),
+    Or(Vec&lt;FilterExpr&gt;),
+    Not(Box&lt;FilterExpr&gt;),
+    Predicate(Predicate),
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="predicate"><a class="header" href="#predicate"><code>Predicate</code></a></h3>
+<p>Leaf-level predicates that match against test metadata.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum Predicate {
+    Test(Regex),       // match test name against regex
+    Package(String),   // match package name
+    Binary(String),    // match binary name
+    Kind(BinaryKind),  // match binary kind (lib, bin, test, example)
+    Flaky,             // test is currently flaky
+    Quarantined,       // test is currently quarantined
+    All,               // matches everything
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="tokenizer"><a class="header" href="#tokenizer">Tokenizer</a></h2>
+<h3 id="tokenize"><a class="header" href="#tokenize"><code>tokenize</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn tokenize(input: &amp;str) -&gt; Result&lt;Vec&lt;Token&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Splits input into tokens.</p>
+<h3 id="token"><a class="header" href="#token"><code>Token</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum Token {
+    Ident(String),
+    LParen,
+    RParen,
+    And,
+    Or,
+    Not,
+    Equals,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="parser"><a class="header" href="#parser">Parser</a></h2>
+<h3 id="parse"><a class="header" href="#parse"><code>parse</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn parse(tokens: Vec&lt;Token&gt;) -&gt; Result&lt;FilterExpr, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Recursive descent parser with this precedence (lowest to highest):</p>
+<ol>
+<li><strong>Or</strong> (<code>|</code>) — binary, left-associative</li>
+<li><strong>And</strong> (<code>&amp;</code>) — binary, left-associative</li>
+<li><strong>Not</strong> (<code>!</code>) — unary prefix</li>
+<li><strong>Primary</strong> — parenthesized expressions or predicate calls</li>
+</ol>
+<p><strong>Predicate syntax:</strong></p>
+<pre><code>test(pattern)       — regex match on test name
+package(name)       — exact match on package name
+binary(name)        — exact match on binary name
+kind(lib|bin|test|example) — match binary kind
+flaky()             — test is flaky
+quarantined()       — test is quarantined
+all()               — match everything
+</code></pre>
+<h2 id="evaluator"><a class="header" href="#evaluator">Evaluator</a></h2>
+<h3 id="eval"><a class="header" href="#eval"><code>eval</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn eval(
+    expr: &amp;FilterExpr,
+    meta: &amp;TestMetadata,
+    ctx: &amp;EvalContext,
+) -&gt; bool
+<span class="boring">}</span></code></pre></pre>
+<p>Evaluates a compiled <code>FilterExpr</code> against a test's metadata using a pre-built evaluation context.</p>
+<h3 id="testmetadata"><a class="header" href="#testmetadata"><code>TestMetadata</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestMetadata {
+    pub name: String,
+    pub package_name: String,
+    pub binary_name: String,
+    pub kind: BinaryKind,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Constructed from a <code>TestCase</code> at evaluation time.</p>
+<h3 id="evalcontext"><a class="header" href="#evalcontext"><code>EvalContext</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct EvalContext {
+    pub flaky_tests: HashSet&lt;String&gt;,
+    pub quarantined_tests: HashSet&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Pre-computed sets for O(1) predicate evaluation.</p>
+<h2 id="examples-1"><a class="header" href="#examples-1">Examples</a></h2>
+<pre><code># All flaky tests in the "auth" package
+package(auth) &amp; flaky()
+
+# Everything except quarantined tests
+!quarantined()
+
+# Tests matching a pattern OR known flaky tests
+test(.*timeout.*) | flaky()
+
+# Complex composition
+(package(api) | package(core)) &amp; !quarantined() &amp; flaky()
+</code></pre>
+<p>See the <a href="api/../guides/filter-dsl.html">Filter DSL Guide</a> for usage examples from the CLI.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="storage-api"><a class="header" href="#storage-api">Storage API</a></h1>
+<p>The storage module provides an async trait abstraction over test result persistence, with SQLite and PostgreSQL backends.</p>
+<h2 id="storage-trait"><a class="header" href="#storage-trait"><code>Storage</code> Trait</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Storage: Send + Sync {
+    async fn store_session(&amp;self, session: &amp;RunSession) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn finish_session(&amp;self, session_id: &amp;Uuid, test_count: u32, flaky_count: u32) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn store_test_run(&amp;self, run: &amp;TestRun, session_id: &amp;Uuid) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn store_flakiness_score(&amp;self, score: &amp;FlakinessScore) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn get_test_runs(&amp;self, test_name: &amp;str, limit: u32) -&gt; Result&lt;Vec&lt;TestRun&gt;, NinetyNineError&gt;;
+    async fn get_recent_sessions(&amp;self, limit: u32) -&gt; Result&lt;Vec&lt;RunSession&gt;, NinetyNineError&gt;;
+    async fn get_all_scores(&amp;self) -&gt; Result&lt;Vec&lt;FlakinessScore&gt;, NinetyNineError&gt;;
+    async fn get_score(&amp;self, test_name: &amp;str) -&gt; Result&lt;Option&lt;FlakinessScore&gt;, NinetyNineError&gt;;
+    async fn quarantine_test(&amp;self, test_name: &amp;str, reason: &amp;str, score: f64, auto: bool) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn unquarantine_test(&amp;self, test_name: &amp;str) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn get_quarantined_tests(&amp;self) -&gt; Result&lt;Vec&lt;QuarantineEntry&gt;, NinetyNineError&gt;;
+    async fn is_quarantined(&amp;self, test_name: &amp;str) -&gt; Result&lt;bool, NinetyNineError&gt;;
+    async fn purge_older_than(&amp;self, days: u32) -&gt; Result&lt;u64, NinetyNineError&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<p>All methods are async to support both synchronous (SQLite via <code>spawn_blocking</code>) and natively async (PostgreSQL) backends.</p>
+<h3 id="method-reference"><a class="header" href="#method-reference">Method Reference</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>store_session</code></td><td>Persists a new run session</td></tr>
+<tr><td><code>finish_session</code></td><td>Marks a session as complete with final test/flaky counts</td></tr>
+<tr><td><code>store_test_run</code></td><td>Stores a single test execution result</td></tr>
+<tr><td><code>store_flakiness_score</code></td><td>Upserts a computed flakiness score (INSERT OR REPLACE)</td></tr>
+<tr><td><code>get_test_runs</code></td><td>Retrieves runs for a test, most recent first</td></tr>
+<tr><td><code>get_recent_sessions</code></td><td>Lists recent sessions, most recent first</td></tr>
+<tr><td><code>get_all_scores</code></td><td>Returns all scores ordered by <code>probability_flaky</code> descending</td></tr>
+<tr><td><code>get_score</code></td><td>Returns the score for a specific test, or <code>None</code></td></tr>
+<tr><td><code>quarantine_test</code></td><td>Adds a test to quarantine with reason and score</td></tr>
+<tr><td><code>unquarantine_test</code></td><td>Removes a test from quarantine</td></tr>
+<tr><td><code>get_quarantined_tests</code></td><td>Lists all quarantined tests</td></tr>
+<tr><td><code>is_quarantined</code></td><td>Checks if a specific test is quarantined</td></tr>
+<tr><td><code>purge_older_than</code></td><td>Deletes test runs older than N days, returns count deleted</td></tr>
+</tbody></table>
+</div>
+<h2 id="storagebackend-enum"><a class="header" href="#storagebackend-enum"><code>StorageBackend</code> Enum</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum StorageBackend {
+    Sqlite(SqliteStorage),
+    Postgres(PostgresStorage),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Delegates all <code>Storage</code> trait methods to the underlying backend.</p>
+<h2 id="factory-function"><a class="header" href="#factory-function">Factory Function</a></h2>
+<h3 id="open_storage"><a class="header" href="#open_storage"><code>open_storage</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn open_storage(config: &amp;Config) -&gt; Result&lt;StorageBackend, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Opens the configured storage backend:</p>
+<ul>
+<li><strong><code>StorageBackendType::Sqlite</code></strong> — Opens (or creates) a SQLite database at the configured path, defaulting to <code>$XDG_DATA_HOME/ninety-nine/ninety-nine.db</code></li>
+<li><strong><code>StorageBackendType::Postgres</code></strong> — Connects to PostgreSQL using the configured connection string and pool size</li>
+</ul>
+<p><strong>Errors:</strong> Returns <code>InvalidConfig</code> if Postgres is selected but no <code>[storage.postgres]</code> configuration is provided.</p>
+<h2 id="sqlite-backend"><a class="header" href="#sqlite-backend">SQLite Backend</a></h2>
+<h3 id="sqlitestorage"><a class="header" href="#sqlitestorage"><code>SqliteStorage</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct SqliteStorage { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn open(db_path: &amp;Path) -&gt; Result&lt;Self, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Opens the database, creates parent directories if needed, enables WAL mode for concurrent reads/writes, and runs schema migrations.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>WAL (Write-Ahead Logging) mode for better concurrent access</li>
+<li>Automatic schema creation on first open</li>
+<li>Bundled SQLite via <code>rusqlite</code> (no system dependency required)</li>
+</ul>
+<p><strong>Default location:</strong> <code>$XDG_DATA_HOME/ninety-nine/ninety-nine.db</code></p>
+<ul>
+<li>Linux: <code>~/.local/share/ninety-nine/ninety-nine.db</code></li>
+<li>macOS: <code>~/Library/Application Support/ninety-nine/ninety-nine.db</code></li>
+</ul>
+<h2 id="postgresql-backend"><a class="header" href="#postgresql-backend">PostgreSQL Backend</a></h2>
+<h3 id="postgresstorage"><a class="header" href="#postgresstorage"><code>PostgresStorage</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct PostgresStorage { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn connect(
+    connection_string: &amp;str,
+    pool_size: u32,
+) -&gt; Result&lt;Self, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Connects to PostgreSQL and initializes the schema. Uses <code>deadpool-postgres</code> for connection pooling.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>connection_string</code></td><td><code>&amp;str</code></td><td>PostgreSQL connection URL</td></tr>
+<tr><td><code>pool_size</code></td><td><code>u32</code></td><td>Maximum number of pooled connections</td></tr>
+</tbody></table>
+</div>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Connection pooling via <code>deadpool-postgres</code></li>
+<li>Automatic schema creation on first connect</li>
+<li>Natively async operations (no <code>spawn_blocking</code> needed)</li>
+</ul>
+<h2 id="database-schema"><a class="header" href="#database-schema">Database Schema</a></h2>
+<p>Both backends share the same logical schema with four tables:</p>
+<pre><code class="language-sql">-- Test execution sessions
+CREATE TABLE sessions (
+    id TEXT PRIMARY KEY,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    test_count INTEGER NOT NULL DEFAULT 0,
+    flaky_count INTEGER NOT NULL DEFAULT 0,
+    commit_hash TEXT NOT NULL,
+    branch TEXT NOT NULL
+);
+
+-- Individual test run results
+CREATE TABLE test_runs (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES sessions(id),
+    test_name TEXT NOT NULL,
+    test_path TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    timestamp TEXT NOT NULL,
+    commit_hash TEXT NOT NULL,
+    branch TEXT NOT NULL,
+    environment TEXT NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    stack_trace TEXT
+);
+
+-- Computed flakiness scores (upserted)
+CREATE TABLE flakiness_scores (
+    test_name TEXT PRIMARY KEY,
+    probability_flaky REAL NOT NULL,
+    confidence REAL NOT NULL,
+    pass_rate REAL NOT NULL,
+    fail_rate REAL NOT NULL,
+    total_runs INTEGER NOT NULL,
+    consecutive_failures INTEGER NOT NULL DEFAULT 0,
+    last_updated TEXT NOT NULL,
+    bayesian_params TEXT NOT NULL
+);
+
+-- Quarantine entries
+CREATE TABLE quarantine (
+    test_name TEXT PRIMARY KEY,
+    quarantined_at TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    flakiness_score REAL NOT NULL DEFAULT 0.0,
+    auto_quarantined INTEGER NOT NULL DEFAULT 0
+);
+</code></pre>
+<h2 id="utility-functions"><a class="header" href="#utility-functions">Utility Functions</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Function</th><th>Signature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>parse_timestamp</code></td><td><code>fn(s: &amp;str) -&gt; DateTime&lt;Utc&gt;</code></td><td>Parses RFC 3339 timestamps, falls back to <code>Utc::now()</code></td></tr>
+<tr><td><code>duration_to_ms</code></td><td><code>fn(d: Duration) -&gt; i64</code></td><td>Converts <code>Duration</code> to milliseconds for storage</td></tr>
+<tr><td><code>ms_to_duration</code></td><td><code>fn(ms: i64) -&gt; Duration</code></td><td>Converts milliseconds back to <code>Duration</code></td></tr>
+</tbody></table>
+</div>
+<p>See the <a href="api/../reference/storage.html">Storage Reference</a> for configuration and migration details.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="runner-api"><a class="header" href="#runner-api">Runner API</a></h1>
+<p>The runner module handles test discovery, execution, and result collection.</p>
+<h2 id="test-discovery"><a class="header" href="#test-discovery">Test Discovery</a></h2>
+<h3 id="discover_test_binaries"><a class="header" href="#discover_test_binaries"><code>discover_test_binaries</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn discover_test_binaries(
+    project_root: &amp;Path,
+) -&gt; Result&lt;Vec&lt;TestBinary&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Discovers all test binaries in a Cargo project by running <code>cargo test --no-run --message-format json-render-diagnostics</code> and parsing the output.</p>
+<p><strong>Returns:</strong> A list of <code>TestBinary</code> structs, each containing the binary path, package name, and kind.</p>
+<p><strong>Errors:</strong> Returns <code>BinaryDiscovery</code> if cargo fails or output cannot be parsed.</p>
+<h3 id="list_tests_parallel"><a class="header" href="#list_tests_parallel"><code>list_tests_parallel</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn list_tests_parallel(
+    binaries: &amp;[TestBinary],
+    concurrency: usize,
+) -&gt; Result&lt;Vec&lt;TestCase&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Lists all tests across multiple binaries concurrently. Each binary is invoked with <code>--list --format terse</code> and output lines ending with <code>: test</code> or <code>: benchmark</code> are parsed.</p>
+<p>Uses <code>tokio::sync::Semaphore</code> for concurrency control.</p>
+<p><strong>Errors:</strong> Returns <code>TestListing</code> if a binary fails to produce test listings.</p>
+<h3 id="detect_available_runner"><a class="header" href="#detect_available_runner"><code>detect_available_runner</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_available_runner() -&gt; Option&lt;AvailableRunner&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Checks if a test runner is available on the system.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum AvailableRunner {
+    Nextest,
+    CargoTest,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Prefers <code>cargo-nextest</code> if installed, falls back to <code>cargo test</code>.</p>
+<h2 id="test-execution-1"><a class="header" href="#test-execution-1">Test Execution</a></h2>
+<h3 id="executor"><a class="header" href="#executor"><code>Executor</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Executor&lt;'a&gt; {
+    config: &amp;'a ExecutionConfig,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Runs individual test cases with retry support.</p>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn new(config: &amp;'a ExecutionConfig) -&gt; Self
+<span class="boring">}</span></code></pre></pre>
+<h4 id="run_single"><a class="header" href="#run_single"><code>run_single</code></a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn run_single(
+    &amp;self,
+    test_case: &amp;TestCase,
+) -&gt; Result&lt;TestResult, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Executes a single test case with retries. Spawns the test binary with the <code>--exact</code> flag targeting the specific test.</p>
+<p><strong>Retry behavior:</strong></p>
+<ul>
+<li>Retries up to <code>config.retries</code> times on failure</li>
+<li>Stops immediately on first pass</li>
+<li>Applies <code>config.retry_delay</code> between attempts</li>
+</ul>
+<p><strong>Timeout:</strong> Uses polling-based detection (50ms intervals). Kills the process when the deadline is exceeded, returning <code>TestOutcome::Timeout</code>.</p>
+<p><strong>Outcome classification:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Condition</th><th>Outcome</th></tr></thead><tbody>
+<tr><td>Exit code 0</td><td><code>Passed</code></td></tr>
+<tr><td><code>panicked at</code> in stderr/stdout</td><td><code>Panic</code></td></tr>
+<tr><td>Deadline exceeded</td><td><code>Timeout</code></td></tr>
+<tr><td>Other non-zero exit</td><td><code>Failed</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="executionconfig"><a class="header" href="#executionconfig"><code>ExecutionConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ExecutionConfig {
+    pub concurrency: usize,
+    pub timeout: Duration,
+    pub retries: u32,
+    pub retry_delay: Duration,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>concurrency</code></td><td>—</td><td>Maximum parallel test binary invocations</td></tr>
+<tr><td><code>timeout</code></td><td>300s</td><td>Per-test execution timeout</td></tr>
+<tr><td><code>retries</code></td><td>0</td><td>Number of retry attempts on failure</td></tr>
+<tr><td><code>retry_delay</code></td><td>100ms</td><td>Delay between retry attempts</td></tr>
+</tbody></table>
+</div>
+<h3 id="testresult"><a class="header" href="#testresult"><code>TestResult</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestResult {
+    pub test_case: TestCase,
+    pub outcome: TestOutcome,
+    pub duration: Duration,
+    pub stdout: String,
+    pub stderr: String,
+    pub attempt: u32,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="test-case-types"><a class="header" href="#test-case-types">Test Case Types</a></h2>
+<h3 id="testcase"><a class="header" href="#testcase"><code>TestCase</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestCase {
+    pub name: TestName,
+    pub binary_path: PathBuf,
+    pub binary_name: String,
+    pub package_name: String,
+    pub binary_kind: BinaryKind,
+    pub kind: TestKind,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="testkind"><a class="header" href="#testkind"><code>TestKind</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TestKind {
+    Test,
+    Benchmark,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="binarykind"><a class="header" href="#binarykind"><code>BinaryKind</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum BinaryKind {
+    Lib,
+    Bin,
+    Test,
+    Example,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Derived from Cargo metadata target kinds.</p>
+<h3 id="testbinary"><a class="header" href="#testbinary"><code>TestBinary</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestBinary {
+    pub path: PathBuf,
+    pub package_name: String,
+    pub binary_name: String,
+    pub kind: BinaryKind,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="high-level-runner"><a class="header" href="#high-level-runner">High-Level Runner</a></h2>
+<h3 id="nativerunner"><a class="header" href="#nativerunner"><code>NativeRunner</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct NativeRunner { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn new(project_root: &amp;Path, config: ExecutionConfig) -&gt; Self
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Methods:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>discover_tests(&amp;self, filter: &amp;str)</code></td><td>Discovers test cases, optionally filtered by name substring</td></tr>
+<tr><td><code>run_test_sync(&amp;self, test_case: &amp;TestCase)</code></td><td>Runs a single test case once</td></tr>
+<tr><td><code>run_test_repeatedly(&amp;self, test_case, iterations, environment)</code></td><td>Runs a test multiple times, returning <code>Vec&lt;TestRun&gt;</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="runnerbackend"><a class="header" href="#runnerbackend"><code>RunnerBackend</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum RunnerBackend {
+    Native(NativeRunner),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Extensible enum wrapping runner implementations. Currently supports native Cargo test execution.</p>
+<p><strong>Methods:</strong> <code>native()</code>, <code>execution_config()</code>, <code>discover_tests()</code>, <code>run_test_repeatedly()</code> — all delegate to the inner <code>NativeRunner</code>.</p>
+<h2 id="standalone-function"><a class="header" href="#standalone-function">Standalone Function</a></h2>
+<h3 id="execute_iterations"><a class="header" href="#execute_iterations"><code>execute_iterations</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn execute_iterations(
+    test_case: &amp;TestCase,
+    iterations: u32,
+    config: &amp;ExecutionConfig,
+    environment: &amp;TestEnvironment,
+) -&gt; Result&lt;Vec&lt;TestRun&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Convenience function that runs a test for N iterations and converts results to <code>TestRun</code> records. Used by the main command handler.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-api"><a class="header" href="#configuration-api">Configuration API</a></h1>
+<p>The configuration module handles loading, parsing, and serializing the <code>.ninety-nine.toml</code> configuration file.</p>
+<h2 id="loading"><a class="header" href="#loading">Loading</a></h2>
+<h3 id="load_config"><a class="header" href="#load_config"><code>load_config</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn load_config(project_root: &amp;Path) -&gt; Result&lt;Config, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Searches for <code>.ninety-nine.toml</code> in the given project root directory. Returns <code>Config::default()</code> if the file does not exist.</p>
+<p><strong>Errors:</strong> Returns <code>ConfigParse</code> if the file exists but contains invalid TOML, or <code>ConfigIo</code> if the file cannot be read.</p>
+<h3 id="default_config_toml"><a class="header" href="#default_config_toml"><code>default_config_toml</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn default_config_toml() -&gt; Result&lt;String, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Serializes <code>Config::default()</code> to pretty-printed TOML. Used by the <code>init</code> command.</p>
+<h3 id="backoff_base_delay"><a class="header" href="#backoff_base_delay"><code>backoff_base_delay</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn backoff_base_delay(strategy: &amp;BackoffStrategy) -&gt; Duration
+<span class="boring">}</span></code></pre></pre>
+<p>Extracts the initial delay from a backoff strategy.</p>
+<div class="table-wrapper"><table><thead><tr><th>Strategy</th><th>Base Delay</th></tr></thead><tbody>
+<tr><td><code>None</code></td><td>0ms</td></tr>
+<tr><td><code>Linear { delay_ms }</code></td><td><code>delay_ms</code></td></tr>
+<tr><td><code>Exponential { base_ms, .. }</code></td><td><code>base_ms</code></td></tr>
+<tr><td><code>Fibonacci { start_ms, .. }</code></td><td><code>start_ms</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="config-model"><a class="header" href="#config-model">Config Model</a></h2>
+<h3 id="config"><a class="header" href="#config"><code>Config</code></a></h3>
+<p>Top-level configuration struct. All fields have sensible defaults.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Config {
+    pub detection: DetectionConfig,
+    pub retry: RetryConfig,
+    pub quarantine: QuarantineConfig,
+    pub storage: StorageConfig,
+    pub reporting: ReportingConfig,
+    pub ci: CiConfig,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="detectionconfig"><a class="header" href="#detectionconfig"><code>DetectionConfig</code></a></h3>
+<p>Controls flakiness detection behavior.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct DetectionConfig {
+    pub min_runs: u32,
+    pub confidence_threshold: f64,
+    pub window_size: u32,
+    pub detection_methods: Vec&lt;DetectionMethod&gt;,
+    pub auto_detect: bool,
+    pub parallel_runs: u32,
+    pub duration_regression: Option&lt;DurationRegressionConfig&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>min_runs</code></td><td>10</td><td>Minimum iterations per test</td></tr>
+<tr><td><code>confidence_threshold</code></td><td>0.95</td><td>Statistical confidence required to classify as flaky</td></tr>
+<tr><td><code>window_size</code></td><td>100</td><td>Maximum historical runs to consider</td></tr>
+<tr><td><code>detection_methods</code></td><td><code>[Bayesian]</code></td><td>Detection algorithms to use</td></tr>
+<tr><td><code>auto_detect</code></td><td>true</td><td>Automatically run detection after tests</td></tr>
+<tr><td><code>parallel_runs</code></td><td>3</td><td>Number of concurrent test executions</td></tr>
+<tr><td><code>duration_regression</code></td><td>None</td><td>Optional duration regression detection config</td></tr>
+</tbody></table>
+</div>
+<h3 id="retryconfig"><a class="header" href="#retryconfig"><code>RetryConfig</code></a></h3>
+<p>Controls test retry behavior on failure.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct RetryConfig {
+    pub unit_test_retries: u32,
+    pub backoff_strategy: BackoffStrategy,
+    pub max_retry_time_secs: u64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>unit_test_retries</code></td><td>2</td><td>Maximum retries per failing test</td></tr>
+<tr><td><code>backoff_strategy</code></td><td>Exponential(100ms, 2.0x, 5000ms)</td><td>Delay strategy between retries</td></tr>
+<tr><td><code>max_retry_time_secs</code></td><td>300</td><td>Hard timeout across all retries</td></tr>
+</tbody></table>
+</div>
+<h3 id="backoffstrategy"><a class="header" href="#backoffstrategy"><code>BackoffStrategy</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum BackoffStrategy {
+    None,
+    Linear { delay_ms: u64 },
+    Exponential { base_ms: u64, factor: f64, max_ms: u64 },
+    Fibonacci { start_ms: u64, max_ms: u64 },
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="quarantineconfig"><a class="header" href="#quarantineconfig"><code>QuarantineConfig</code></a></h3>
+<p>Controls automatic and manual test quarantine.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct QuarantineConfig {
+    pub enabled: bool,
+    pub auto_quarantine: bool,
+    pub threshold: QuarantineThreshold,
+    pub max_quarantine_days: u32,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>enabled</code></td><td>true</td><td>Enable quarantine system</td></tr>
+<tr><td><code>auto_quarantine</code></td><td>false</td><td>Automatically quarantine tests exceeding thresholds</td></tr>
+<tr><td><code>max_quarantine_days</code></td><td>30</td><td>Days before quarantined tests are reviewed</td></tr>
+</tbody></table>
+</div>
+<h3 id="quarantinethreshold"><a class="header" href="#quarantinethreshold"><code>QuarantineThreshold</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct QuarantineThreshold {
+    pub consecutive_failures: u32,
+    pub failure_rate: f64,
+    pub flakiness_score: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>consecutive_failures</code></td><td>3</td><td>Consecutive failures before quarantine</td></tr>
+<tr><td><code>failure_rate</code></td><td>0.20</td><td>Failure rate threshold (20%)</td></tr>
+<tr><td><code>flakiness_score</code></td><td>0.15</td><td>Bayesian score threshold</td></tr>
+</tbody></table>
+</div>
+<h3 id="storageconfig"><a class="header" href="#storageconfig"><code>StorageConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct StorageConfig {
+    pub backend: StorageBackendType,
+    pub retention_days: u32,
+    pub sqlite: Option&lt;SqliteConfig&gt;,
+    pub postgres: Option&lt;PostgresConfig&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>backend</code></td><td><code>Sqlite</code></td><td>Storage backend to use</td></tr>
+<tr><td><code>retention_days</code></td><td>90</td><td>Days to retain test run data</td></tr>
+</tbody></table>
+</div>
+<h3 id="storagebackendtype"><a class="header" href="#storagebackendtype"><code>StorageBackendType</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum StorageBackendType {
+    Sqlite,
+    Postgres,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="sqliteconfig"><a class="header" href="#sqliteconfig"><code>SqliteConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct SqliteConfig {
+    pub database_path: PathBuf,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Default path: <code>$XDG_DATA_HOME/ninety-nine/ninety-nine.db</code></p>
+<h3 id="postgresconfig"><a class="header" href="#postgresconfig"><code>PostgresConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct PostgresConfig {
+    pub connection_string: String,
+    pub pool_size: u32,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="reportingconfig"><a class="header" href="#reportingconfig"><code>ReportingConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ReportingConfig {
+    pub console: ConsoleOutputConfig,
+}
+
+pub struct ConsoleOutputConfig {
+    pub summary_only: bool,  // default: false
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="ciconfig"><a class="header" href="#ciconfig"><code>CiConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct CiConfig {
+    pub provider: Option&lt;CiProvider&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="ciprovider"><a class="header" href="#ciprovider"><code>CiProvider</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum CiProvider {
+    GitHub,
+    GitLab,
+    Jenkins,
+    CircleCI,
+    AzureDevOps,
+    Buildkite,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="durationregressionconfig"><a class="header" href="#durationregressionconfig"><code>DurationRegressionConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct DurationRegressionConfig {
+    pub enabled: bool,
+    pub min_history_runs: u32,
+    pub threshold: DurationThreshold,
+}
+
+pub enum DurationThreshold {
+    Multiplier(f64),
+    StdDev(f64),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>See the <a href="api/../reference/configuration.html">Configuration Reference</a> for TOML examples.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="error-types"><a class="header" href="#error-types">Error Types</a></h1>
+<p>All fallible operations in <code>cargo-ninety-nine</code> return <code>Result&lt;T, NinetyNineError&gt;</code>.</p>
+<h2 id="ninetynineerror"><a class="header" href="#ninetynineerror"><code>NinetyNineError</code></a></h2>
+<p>A comprehensive error enum covering all failure modes, derived with <code>thiserror</code>.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum NinetyNineError {
+    ConfigNotFound { path: PathBuf },
+    ConfigParse { source: toml::de::Error },
+    ConfigIo { path: PathBuf, source: std::io::Error },
+    NoRunnerAvailable,
+    RunnerExecution { message: String },
+    InvalidConfig { message: String },
+    BinaryDiscovery { message: String },
+    TestListing { binary: PathBuf, message: String },
+    TestNotFound { name: String },
+    FilterParse { message: String },
+    Io { source: std::io::Error },
+    Json { source: serde_json::Error },
+    Storage { source: rusqlite::Error },
+    PostgresStorage { source: tokio_postgres::Error },
+    PostgresPool { message: String },
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="error-categories"><a class="header" href="#error-categories">Error Categories</a></h2>
+<h3 id="configuration-errors"><a class="header" href="#configuration-errors">Configuration Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Display Message</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>ConfigNotFound</code></td><td><code>config file not found: {path}</code></td><td><code>.ninety-nine.toml</code> does not exist at the expected path</td></tr>
+<tr><td><code>ConfigParse</code></td><td><code>failed to parse config: {source}</code></td><td>TOML syntax error or invalid field value</td></tr>
+<tr><td><code>ConfigIo</code></td><td><code>failed to read config file {path}: {source}</code></td><td>File exists but cannot be read (permissions, etc.)</td></tr>
+<tr><td><code>InvalidConfig</code></td><td><code>invalid configuration: {message}</code></td><td>Logical configuration error (e.g., Postgres backend without connection config)</td></tr>
+</tbody></table>
+</div>
+<h3 id="runner-errors"><a class="header" href="#runner-errors">Runner Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Display Message</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>NoRunnerAvailable</code></td><td><code>no test runner available: install cargo-nextest or use cargo test</code></td><td>Neither cargo-nextest nor cargo test found</td></tr>
+<tr><td><code>RunnerExecution</code></td><td><code>runner execution failed: {message}</code></td><td>Test binary failed to spawn or produced unexpected output</td></tr>
+<tr><td><code>BinaryDiscovery</code></td><td><code>binary discovery failed: {message}</code></td><td><code>cargo test --no-run</code> failed or produced unparseable output</td></tr>
+<tr><td><code>TestListing</code></td><td><code>test listing failed for {binary}: {message}</code></td><td>Test binary <code>--list</code> invocation failed</td></tr>
+<tr><td><code>TestNotFound</code></td><td><code>test not found: {name}</code></td><td>Requested test does not exist in the project</td></tr>
+</tbody></table>
+</div>
+<h3 id="filter-errors"><a class="header" href="#filter-errors">Filter Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Display Message</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>FilterParse</code></td><td><code>filter parse error: {message}</code></td><td>Invalid filter DSL syntax</td></tr>
+</tbody></table>
+</div>
+<h3 id="storage-errors"><a class="header" href="#storage-errors">Storage Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Display Message</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>Storage</code></td><td><code>storage error: {source}</code></td><td>SQLite operation failed (auto-converted from <code>rusqlite::Error</code>)</td></tr>
+<tr><td><code>PostgresStorage</code></td><td><code>postgres storage error: {source}</code></td><td>PostgreSQL operation failed (auto-converted from <code>tokio_postgres::Error</code>)</td></tr>
+<tr><td><code>PostgresPool</code></td><td><code>postgres pool error: {message}</code></td><td>Connection pool exhausted or configuration error</td></tr>
+</tbody></table>
+</div>
+<h3 id="io-and-serialization-errors"><a class="header" href="#io-and-serialization-errors">I/O and Serialization Errors</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Display Message</th><th>Cause</th></tr></thead><tbody>
+<tr><td><code>Io</code></td><td><code>io error: {source}</code></td><td>Generic I/O failure (auto-converted from <code>std::io::Error</code>)</td></tr>
+<tr><td><code>Json</code></td><td><code>json serialization error: {source}</code></td><td>JSON serialization/deserialization failure (auto-converted from <code>serde_json::Error</code>)</td></tr>
+</tbody></table>
+</div>
+<h2 id="automatic-conversions"><a class="header" href="#automatic-conversions">Automatic Conversions</a></h2>
+<p>The following <code>From</code> implementations allow <code>?</code> propagation:</p>
+<div class="table-wrapper"><table><thead><tr><th>Source Type</th><th>Target Variant</th></tr></thead><tbody>
+<tr><td><code>std::io::Error</code></td><td><code>Io</code></td></tr>
+<tr><td><code>serde_json::Error</code></td><td><code>Json</code></td></tr>
+<tr><td><code>rusqlite::Error</code></td><td><code>Storage</code></td></tr>
+<tr><td><code>tokio_postgres::Error</code></td><td><code>PostgresStorage</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="error-handling-in-practice"><a class="header" href="#error-handling-in-practice">Error Handling in Practice</a></h2>
+<p>All errors are displayed to stderr in the main entry point and cause the process to exit with code 1:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// Simplified from main.rs
+match run(args).await {
+    Ok(()) =&gt; {}
+    Err(e) =&gt; {
+        eprintln!("error: {e}");
+        std::process::exit(1);
+    }
+}
+<span class="boring">}</span></code></pre></pre>
+<p>When <code>--verbose</code> is enabled, the tracing subscriber is set to <code>debug</code> level, providing additional context before errors surface.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="architecture"><a class="header" href="#architecture">Architecture</a></h1>
+<h2 id="module-overview"><a class="header" href="#module-overview">Module Overview</a></h2>
+<pre><code>cargo-ninety-nine
+src/
+  main.rs              Entry point, command dispatch, orchestration
+  lib.rs               Module re-exports
+  error.rs             NinetyNineError enum (thiserror)
+  analysis/
+    mod.rs             Shared failure_rate() helper
+    duration.rs        Duration regression detection
+    pattern.rs         Failure pattern detection (time-of-day, environmental)
+    trend.rs           Trend calculation (improving/stable/degrading)
+  ci/
+    mod.rs             CI re-exports
+    workflow.rs        GitHub Actions / GitLab CI YAML generation
+  cli/
+    mod.rs             CLI argument definitions (clap derive)
+    output.rs          Console/JSON output formatting
+    export.rs          JUnit XML, HTML, CSV, JSON export
+  config/
+    mod.rs             Config loading from TOML
+    model.rs           Config struct definitions with defaults
+  detector/
+    mod.rs             Detector re-exports
+    bayesian.rs        Bayesian flakiness scoring
+  filter/
+    mod.rs             compile_filter(), build_eval_context()
+    ast.rs             FilterExpr and Predicate AST nodes
+    lexer.rs           Tokenizer for filter DSL
+    parser.rs          Recursive descent parser
+    eval.rs            Evaluator matching FilterExpr against TestMetadata
+  runner/
+    mod.rs             NativeRunner, RunnerBackend, execute_iterations()
+    binary.rs          Test binary discovery via cargo_metadata
+    listing.rs         Test case enumeration from binaries
+    executor.rs        Per-test execution with timeout/retry
+    detection.rs       Runner availability check
+  storage/
+    mod.rs             Storage trait (async), open_storage() factory
+    backend.rs         StorageBackend enum with dispatch! macro
+    sqlite.rs          SQLite implementation (rusqlite, WAL mode)
+    postgres.rs        PostgreSQL implementation (deadpool-postgres)
+    schema.rs          SQL migration definitions
+  types/
+    mod.rs             Type re-exports
+    test_run.rs        TestRun, TestOutcome, TestEnvironment
+    test_name.rs       TestName newtype
+    flakiness.rs       FlakinessScore, BayesianParams, FlakinessCategory
+    trend.rs           TrendDirection, TrendSummary
+    session.rs         RunSession, ActiveSession, QuarantineEntry
+    analysis.rs        FailurePattern, PatternType
+</code></pre>
+<h2 id="test-execution-flow"><a class="header" href="#test-execution-flow">Test Execution Flow</a></h2>
+<pre><code>CLI (clap)
+    |
+    v
+Config Loader ---------&gt; .ninety-nine.toml
+    |
+    v
+Filter DSL (optional)
+  lexer --&gt; parser --&gt; FilterExpr AST
+    |
+    v
+Runner Backend (NativeRunner)
+  +-------------------+
+  | Binary Discovery  |  cargo test --no-run --message-format json
+  |   (cargo_metadata)|
+  +---------+---------+
+            |
+            v
+  +-------------------+
+  | Test Listing      |  binary --list --format terse
+  |   (parallel via   |  (semaphore-bounded concurrency)
+  |    tokio spawn)   |
+  +---------+---------+
+            |
+            v
+  +-------------------+
+  | Filter Evaluation |  FilterExpr evaluated against TestMetadata
+  |   (if DSL given)  |  (loads flaky/quarantined sets from storage)
+  +---------+---------+
+            |
+            v
+  +-------------------+
+  | Executor          |  binary --exact test_name --nocapture
+  |   (N iterations,  |  (parallel via spawn_blocking + Semaphore)
+  |    timeout, retry) |
+  +-------------------+
+            |
+            | Vec&lt;TestRun&gt;
+            v
+  +-------------------+
+  | Bayesian Detector |  Beta(alpha, beta) posterior
+  |   + Analysis      |  --&gt; FlakinessScore
+  |   + Duration      |  --&gt; DurationRegression (optional)
+  +-------------------+
+            |
+      +-----+-----+
+      v           v
+  Storage      Reporter
+  (SQLite/     (console/
+   Postgres)    JSON/export)
+</code></pre>
+<h2 id="filter-dsl-pipeline"><a class="header" href="#filter-dsl-pipeline">Filter DSL Pipeline</a></h2>
+<p>The filter system has three stages:</p>
+<ol>
+<li>
+<p><strong>Lexer</strong> (<code>filter/lexer.rs</code>) -- tokenizes the input string into <code>Token</code> values: <code>LParen</code>, <code>RParen</code>, <code>And</code> (<code>&amp;</code>), <code>Or</code> (<code>|</code>), <code>Not</code> (<code>!</code>), and <code>Ident(String)</code>.</p>
+</li>
+<li>
+<p><strong>Parser</strong> (<code>filter/parser.rs</code>) -- recursive descent parser that builds a <code>FilterExpr</code> AST. Supports binary operators (<code>&amp;</code>, <code>|</code>), unary negation (<code>!</code>), parenthesized grouping, and function-call predicates like <code>test(pattern)</code>, <code>package(name)</code>, <code>binary(name)</code>, <code>kind(lib|bin|test|example)</code>. Bare identifiers are resolved as keywords (<code>flaky</code>, <code>quarantined</code>, <code>all</code>) or treated as test name regex patterns.</p>
+</li>
+<li>
+<p><strong>Evaluator</strong> (<code>filter/eval.rs</code>) -- evaluates a <code>FilterExpr</code> against a <code>TestMetadata</code> struct containing the test name, package name, binary name, and binary kind. An <code>EvalContext</code> holds pre-loaded sets of flaky and quarantined test names from storage.</p>
+</li>
+</ol>
+<h2 id="storage-abstraction"><a class="header" href="#storage-abstraction">Storage Abstraction</a></h2>
+<p>The <code>Storage</code> trait defines 13 async methods for persisting and querying test data. Two backends implement it:</p>
+<ul>
+<li>
+<p><strong>SqliteStorage</strong> -- uses <code>rusqlite</code> with WAL mode and <code>Mutex&lt;Connection&gt;</code> for thread safety. Synchronous operations run inside async method signatures. Migrations use <code>PRAGMA user_version</code>.</p>
+</li>
+<li>
+<p><strong>PostgresStorage</strong> -- uses <code>deadpool-postgres</code> for connection pooling with configurable pool size and timeouts. Migrations use a <code>schema_migrations</code> table.</p>
+</li>
+</ul>
+<p>The <code>StorageBackend</code> enum wraps both backends and dispatches calls via a <code>dispatch!</code> macro, keeping the orchestration layer backend-agnostic.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum StorageBackend {
+    Sqlite(SqliteStorage),
+    Postgres(PostgresStorage),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>open_storage()</code> factory function reads the config to determine which backend to initialize.</p>
+<h2 id="type-system"><a class="header" href="#type-system">Type System</a></h2>
+<h3 id="testname-1"><a class="header" href="#testname-1">TestName</a></h3>
+<p>A newtype wrapper around <code>String</code> that prevents confusion with other string fields (branch names, commit hashes, error messages). Implements <code>Deref&lt;Target=str&gt;</code>, <code>AsRef&lt;str&gt;</code>, <code>Display</code>, <code>From&lt;String&gt;</code>, <code>From&lt;&amp;str&gt;</code>, and <code>PartialEq&lt;str&gt;</code>. Used in <code>TestRun</code>, <code>FlakinessScore</code>, <code>QuarantineEntry</code>, <code>TrendSummary</code>, <code>DurationRegression</code>, and <code>TestCase</code>.</p>
+<h3 id="activesession-1"><a class="header" href="#activesession-1">ActiveSession</a></h3>
+<p>Type-state pattern for session lifecycle. <code>ActiveSession::start()</code> creates a running session. <code>into_run_session()</code> consumes it to produce a storable <code>RunSession</code>, preventing double-finish at the orchestration layer. <code>to_run_session()</code> creates a storable copy without consuming the active session.</p>
+<h3 id="flakinessscore-and-flakinesscategory"><a class="header" href="#flakinessscore-and-flakinesscategory">FlakinessScore and FlakinessCategory</a></h3>
+<p><code>FlakinessScore</code> holds the Bayesian posterior parameters (alpha, beta, posterior mean/variance, credible interval) alongside aggregate statistics (pass rate, fail rate, consecutive failures). <code>FlakinessCategory</code> classifies scores into five levels:</p>
+<div class="table-wrapper"><table><thead><tr><th>Score Range</th><th>Category</th></tr></thead><tbody>
+<tr><td>&lt; 0.01</td><td>Stable</td></tr>
+<tr><td>0.01 - 0.05</td><td>Occasional</td></tr>
+<tr><td>0.05 - 0.15</td><td>Moderate</td></tr>
+<tr><td>0.15 - 0.30</td><td>Frequent</td></tr>
+<tr><td>&gt;= 0.30</td><td>Critical</td></tr>
+</tbody></table>
+</div>
+<h2 id="key-design-decisions"><a class="header" href="#key-design-decisions">Key Design Decisions</a></h2>
+<h3 id="native-test-runner"><a class="header" href="#native-test-runner">Native Test Runner</a></h3>
+<p>Instead of wrapping <code>cargo test</code> as a subprocess for the full run, the tool uses a three-layer native pipeline:</p>
+<ol>
+<li><strong>Binary discovery</strong> -- uses <code>cargo_metadata</code> to parse <code>cargo test --no-run</code> JSON output, extracting test binary paths with package name and binary kind.</li>
+<li><strong>Test listing</strong> -- executes each binary with <code>--list --format terse</code> to enumerate individual test names. Runs in parallel across binaries using <code>tokio::spawn_blocking</code> with semaphore-bounded concurrency.</li>
+<li><strong>Per-test execution</strong> -- runs each test individually via <code>duct</code>, using <code>--exact</code> for isolation. Supports configurable timeout, retry count, and retry delay.</li>
+</ol>
+<p>This gives precise per-test timing, retry control, and outcome classification without parsing human-readable test output.</p>
+<h3 id="parallel-execution-1"><a class="header" href="#parallel-execution-1">Parallel Execution</a></h3>
+<p>Test execution uses <code>tokio::spawn_blocking</code> with a <code>Semaphore</code> to bound concurrency. The semaphore limit comes from <code>detection.parallel_runs</code> in the config (default: 3). Each test iteration acquires a permit before spawning a blocking task.</p>
+<h3 id="subprocess-management"><a class="header" href="#subprocess-management">Subprocess Management</a></h3>
+<p>Test execution uses <code>duct</code> for subprocess control with:</p>
+<ul>
+<li><strong>Poll-based timeout</strong> -- <code>try_wait()</code> in a loop with a 50ms polling interval, <code>kill()</code> on deadline</li>
+<li><strong>Output capture</strong> -- stdout and stderr captured for failure analysis</li>
+<li><strong>Unchecked mode</strong> -- non-zero exit codes are handled as test outcomes, not errors</li>
+</ul>
+<h3 id="storage-backend-dispatch"><a class="header" href="#storage-backend-dispatch">Storage Backend Dispatch</a></h3>
+<p>The <code>StorageBackend</code> enum uses a <code>dispatch!</code> macro to forward all 13 trait methods to the underlying backend. This avoids 130+ lines of boilerplate match arms while keeping the dispatch zero-cost.</p>
+<h3 id="error-handling-1"><a class="header" href="#error-handling-1">Error Handling</a></h3>
+<p>All errors flow through <code>NinetyNineError</code> (thiserror), with variants for each subsystem: config, storage, binary discovery, test listing, runner execution, filter parsing, Postgres pool, and I/O. The <code>?</code> operator propagates errors to the top-level handler.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="bayesian-detection"><a class="header" href="#bayesian-detection">Bayesian Detection</a></h1>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p><code>cargo ninety-nine</code> uses Bayesian inference to estimate the probability that a test is flaky. This approach provides calibrated uncertainty estimates rather than simple pass/fail ratios.</p>
+<h2 id="the-model"><a class="header" href="#the-model">The Model</a></h2>
+<h3 id="prior"><a class="header" href="#prior">Prior</a></h3>
+<p>The model starts with a uniform (uninformative) prior: Beta(1, 1). This represents no prior knowledge — any flakiness probability from 0 to 1 is equally likely before observing data.</p>
+<h3 id="posterior-update"><a class="header" href="#posterior-update">Posterior Update</a></h3>
+<p>After observing test runs, the posterior distribution is:</p>
+<pre><code>Beta(alpha, beta)
+
+where:
+  alpha = prior_alpha + failures
+  beta  = prior_beta  + passes
+</code></pre>
+<p>The <strong>posterior mean</strong> is used as the flakiness probability:</p>
+<pre><code>P(flaky) = alpha / (alpha + beta)
+</code></pre>
+<h3 id="credible-interval"><a class="header" href="#credible-interval">Credible Interval</a></h3>
+<p>A 95% credible interval is computed from the Beta distribution's inverse CDF:</p>
+<pre><code>CI = [Beta.inverse_cdf(0.025), Beta.inverse_cdf(0.975)]
+</code></pre>
+<p>This interval narrows as more data is collected.</p>
+<h3 id="confidence"><a class="header" href="#confidence">Confidence</a></h3>
+<p>Confidence is derived from the width of the credible interval:</p>
+<pre><code>confidence = 1.0 - (CI_upper - CI_lower)
+</code></pre>
+<p>Narrow intervals yield high confidence; wide intervals yield low confidence.</p>
+<h2 id="classification"><a class="header" href="#classification">Classification</a></h2>
+<p>A test is classified as <strong>flaky</strong> when:</p>
+<pre><code>P(flaky) &gt; 0.01 AND confidence &gt;= confidence_threshold
+</code></pre>
+<p>The <code>confidence_threshold</code> is configurable (default: 0.95).</p>
+<h3 id="flakiness-categories-1"><a class="header" href="#flakiness-categories-1">Flakiness Categories</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>P(flaky) Range</th></tr></thead><tbody>
+<tr><td>Stable</td><td>&lt; 1%</td></tr>
+<tr><td>Occasional</td><td>1% — 5%</td></tr>
+<tr><td>Moderate</td><td>5% — 15%</td></tr>
+<tr><td>Frequent</td><td>15% — 30%</td></tr>
+<tr><td>Critical</td><td>&gt; 30%</td></tr>
+</tbody></table>
+</div>
+<h2 id="practical-implications"><a class="header" href="#practical-implications">Practical Implications</a></h2>
+<h3 id="number-of-runs"><a class="header" href="#number-of-runs">Number of Runs</a></h3>
+<p>With the Beta(1,1) prior:</p>
+<ul>
+<li><strong>10 runs, 1 failure</strong>: P(flaky) = 2/12 = 16.7%, wide CI → low confidence</li>
+<li><strong>100 runs, 1 failure</strong>: P(flaky) = 2/102 = 2.0%, narrow CI → high confidence</li>
+<li><strong>100 runs, 0 failures</strong>: P(flaky) = 1/102 = 1.0%, classified as Stable</li>
+</ul>
+<p>More runs yield narrower credible intervals and more reliable classifications.</p>
+<h3 id="prior-effect"><a class="header" href="#prior-effect">Prior Effect</a></h3>
+<p>The uniform prior has minimal effect when there are many observations. With 100+ runs, the prior contributes &lt; 2% to the posterior. For small sample sizes (&lt; 10 runs), the prior pulls estimates toward 50%, which is conservative.</p>
+<h2 id="stored-parameters"><a class="header" href="#stored-parameters">Stored Parameters</a></h2>
+<p>Each <code>FlakinessScore</code> record includes the full Bayesian parameters:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>alpha</code></td><td>Posterior alpha (prior + failures)</td></tr>
+<tr><td><code>beta</code></td><td>Posterior beta (prior + passes)</td></tr>
+<tr><td><code>posterior_mean</code></td><td>alpha / (alpha + beta)</td></tr>
+<tr><td><code>posterior_variance</code></td><td>(alpha * beta) / (total^2 * (total + 1))</td></tr>
+<tr><td><code>credible_interval_lower</code></td><td>2.5th percentile of posterior</td></tr>
+<tr><td><code>credible_interval_upper</code></td><td>97.5th percentile of posterior</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="analysis-and-patterns"><a class="header" href="#analysis-and-patterns">Analysis and Patterns</a></h1>
+<h2 id="pattern-detection-1"><a class="header" href="#pattern-detection-1">Pattern Detection</a></h2>
+<p>After running tests, <code>cargo ninety-nine</code> analyzes failure data to identify patterns that might explain why tests are flaky.</p>
+<h3 id="pattern-types"><a class="header" href="#pattern-types">Pattern Types</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Pattern</th><th>Detection Method</th></tr></thead><tbody>
+<tr><td><strong>TimeOfDay</strong></td><td>Failures concentrated at a specific hour (3x expected rate)</td></tr>
+<tr><td><strong>Environmental</strong></td><td>Failure rate differs &gt; 15% between CI and local environments</td></tr>
+<tr><td><strong>Random</strong></td><td>Failures present but no discernible pattern (fallback)</td></tr>
+</tbody></table>
+</div>
+<h3 id="time-of-day-detection"><a class="header" href="#time-of-day-detection">Time-of-Day Detection</a></h3>
+<p>Requires at least 5 failures. Counts failures by hour (0-23 UTC) and computes:</p>
+<pre><code>concentration = max_hour_count / expected_per_hour
+</code></pre>
+<p>If <code>concentration &gt;= 3.0</code>, a TimeOfDay pattern is reported with:</p>
+<ul>
+<li><code>correlation</code>: <code>min(concentration - 1.0, 1.0)</code></li>
+<li><code>examples</code>: the peak hour identified</li>
+</ul>
+<p>This pattern suggests timing-dependent failures (e.g., midnight log rotation, scheduled background jobs).</p>
+<h3 id="environmental-detection"><a class="header" href="#environmental-detection">Environmental Detection</a></h3>
+<p>Requires at least 3 CI runs and 3 local runs. Compares failure rates between environments:</p>
+<pre><code>diff = |ci_fail_rate - local_fail_rate|
+</code></pre>
+<p>If <code>diff &gt;= 0.15</code>, an Environmental pattern is reported, identifying which environment has the higher failure rate. This pattern suggests resource-dependent failures (e.g., CPU count, memory limits, file system speed).</p>
+<h3 id="random-pattern"><a class="header" href="#random-pattern">Random Pattern</a></h3>
+<p>If failures exist but no specific pattern is detected, a Random pattern is reported. This is the fallback -- it means failures occur but do not correlate with time or environment.</p>
+<h2 id="trend-analysis"><a class="header" href="#trend-analysis">Trend Analysis</a></h2>
+<p>Trend analysis compares recent failure rates to previous failure rates within a sliding window.</p>
+<h3 id="how-it-works-1"><a class="header" href="#how-it-works-1">How It Works</a></h3>
+<ol>
+<li>Filter runs for a specific test name</li>
+<li>Take up to <code>window_size</code> most recent runs (configurable, default: 100)</li>
+<li>Split into two halves: <strong>recent</strong> (first half) and <strong>previous</strong> (second half)</li>
+<li>Compute failure rate for each half</li>
+<li>Classify the delta:</li>
+</ol>
+<div class="table-wrapper"><table><thead><tr><th>Delta</th><th>Direction</th></tr></thead><tbody>
+<tr><td>&gt; 5%</td><td>Degrading</td></tr>
+<tr><td>&lt; -5%</td><td>Improving</td></tr>
+<tr><td>within +/- 5%</td><td>Stable</td></tr>
+</tbody></table>
+</div>
+<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
+<p>At least 4 runs are required for trend calculation. Fewer runs return <code>None</code>.</p>
+<h3 id="where-trends-are-shown"><a class="header" href="#where-trends-are-shown">Where Trends Are Shown</a></h3>
+<ul>
+<li><code>cargo ninety-nine status &lt;test_name&gt;</code> -- shows trend direction and delta</li>
+<li>After <code>test</code> -- degrading trends are highlighted in the post-detection analysis</li>
+</ul>
+<h2 id="duration-regression-analysis"><a class="header" href="#duration-regression-analysis">Duration Regression Analysis</a></h2>
+<p>Duration regression detection identifies tests whose execution time has significantly increased compared to their historical average. This helps catch performance regressions early, even when tests still pass.</p>
+<h3 id="how-it-works-2"><a class="header" href="#how-it-works-2">How It Works</a></h3>
+<ol>
+<li>Collect all historical run durations for a test (most recent first)</li>
+<li>Require at least <code>min_history_runs</code> data points (configured in <code>[detection.duration_regression]</code>)</li>
+<li>Compute the <strong>mean</strong> and <strong>sample standard deviation</strong> of all durations</li>
+<li>Compare the <strong>latest</strong> duration against the historical distribution:</li>
+</ol>
+<pre><code>deviation_factor = (latest_duration - mean) / standard_deviation
+</code></pre>
+<ol start="5">
+<li>If <code>deviation_factor &gt; threshold</code>, a regression is reported</li>
+</ol>
+<h3 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h3>
+<p>Duration regression detection is disabled by default. Enable it in <code>.ninety-nine.toml</code>:</p>
+<pre><code class="language-toml">[detection.duration_regression]
+enabled = true
+min_history_runs = 10
+
+# Flag when latest run exceeds 2.5 standard deviations above the mean
+[detection.duration_regression.threshold]
+StdDev = 2.5
+</code></pre>
+<p>Two threshold variants are available:</p>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Description</th><th>Example</th></tr></thead><tbody>
+<tr><td><code>StdDev(f64)</code></td><td>Number of standard deviations above the mean</td><td><code>StdDev = 2.0</code> flags tests running &gt;2 sigma slower</td></tr>
+<tr><td><code>Multiplier(f64)</code></td><td>Multiple of the historical mean</td><td><code>Multiplier = 3.0</code> flags tests taking &gt;3x their average</td></tr>
+</tbody></table>
+</div>
+<h3 id="output"><a class="header" href="#output">Output</a></h3>
+<p>When a regression is detected, the output includes:</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td>Fully qualified name of the affected test</td></tr>
+<tr><td><code>current_ms</code></td><td>Duration of the latest run in milliseconds</td></tr>
+<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds</td></tr>
+<tr><td><code>std_dev_ms</code></td><td>Standard deviation of historical durations</td></tr>
+<tr><td><code>deviation_factor</code></td><td>How many standard deviations above the mean</td></tr>
+</tbody></table>
+</div>
+<h3 id="edge-cases"><a class="header" href="#edge-cases">Edge Cases</a></h3>
+<ul>
+<li>If the standard deviation is effectively zero (all durations identical), no regression is reported regardless of the latest duration</li>
+<li>If fewer than <code>min_history_runs</code> runs exist, no regression check is performed</li>
+<li>The latest run (index 0) is included in the mean/stddev calculation along with historical runs</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="storage"><a class="header" href="#storage">Storage</a></h1>
+<h2 id="storage-trait-1"><a class="header" href="#storage-trait-1">Storage Trait</a></h2>
+<p>The <code>Storage</code> trait defines the async interface for all data persistence. Both backends implement all 13 methods:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Storage: Send + Sync {
+    async fn store_session(&amp;self, session: &amp;RunSession) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn finish_session(&amp;self, session_id: &amp;Uuid, test_count: u32, flaky_count: u32) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn store_test_run(&amp;self, run: &amp;TestRun, session_id: &amp;Uuid) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn store_flakiness_score(&amp;self, score: &amp;FlakinessScore) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn get_test_runs(&amp;self, test_name: &amp;str, limit: u32) -&gt; Result&lt;Vec&lt;TestRun&gt;, NinetyNineError&gt;;
+    async fn get_recent_sessions(&amp;self, limit: u32) -&gt; Result&lt;Vec&lt;RunSession&gt;, NinetyNineError&gt;;
+    async fn get_all_scores(&amp;self) -&gt; Result&lt;Vec&lt;FlakinessScore&gt;, NinetyNineError&gt;;
+    async fn get_score(&amp;self, test_name: &amp;str) -&gt; Result&lt;Option&lt;FlakinessScore&gt;, NinetyNineError&gt;;
+    async fn quarantine_test(&amp;self, test_name: &amp;str, reason: &amp;str, score: f64, auto: bool) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn unquarantine_test(&amp;self, test_name: &amp;str) -&gt; Result&lt;(), NinetyNineError&gt;;
+    async fn get_quarantined_tests(&amp;self) -&gt; Result&lt;Vec&lt;QuarantineEntry&gt;, NinetyNineError&gt;;
+    async fn is_quarantined(&amp;self, test_name: &amp;str) -&gt; Result&lt;bool, NinetyNineError&gt;;
+    async fn purge_older_than(&amp;self, days: u32) -&gt; Result&lt;u64, NinetyNineError&gt;;
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>StorageBackend</code> enum wraps both backends and dispatches calls via a <code>dispatch!</code> macro:</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum StorageBackend {
+    Sqlite(SqliteStorage),
+    Postgres(PostgresStorage),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>The <code>open_storage()</code> factory function reads the config to initialize the correct backend.</p>
+<h2 id="sqlite-backend-default"><a class="header" href="#sqlite-backend-default">SQLite Backend (Default)</a></h2>
+<p>SQLite is the default backend, using <code>rusqlite</code> with the bundled SQLite library. No external database is required.</p>
+<h3 id="default-location"><a class="header" href="#default-location">Default Location</a></h3>
+<pre><code>$XDG_DATA_HOME/ninety-nine/ninety-nine.db
+</code></pre>
+<p>On Linux this is typically <code>~/.local/share/ninety-nine/ninety-nine.db</code>. The parent directory is created automatically if it does not exist.</p>
+<h3 id="features"><a class="header" href="#features">Features</a></h3>
+<ul>
+<li><strong>WAL mode</strong> -- enabled on open for concurrent read access during detection</li>
+<li><strong>Foreign keys</strong> -- enforced via <code>PRAGMA foreign_keys=ON</code></li>
+<li><strong>Thread safety</strong> -- <code>Mutex&lt;Connection&gt;</code> guards all access; async trait methods run synchronously within async signatures</li>
+<li><strong>Bundled SQLite</strong> -- no system SQLite dependency required</li>
+</ul>
+<h3 id="configuration-2"><a class="header" href="#configuration-2">Configuration</a></h3>
+<pre><code class="language-toml">[storage]
+backend = "Sqlite"
+retention_days = 90
+
+[storage.sqlite]
+database_path = "/custom/path/ninety-nine.db"
+</code></pre>
+<p>If <code>storage.sqlite</code> is omitted, the default path is used.</p>
+<h3 id="migrations"><a class="header" href="#migrations">Migrations</a></h3>
+<p>Schema migrations use SQLite's <code>PRAGMA user_version</code>. Each migration increments the version. Migrations are idempotent -- running the tool against an already-migrated database is safe.</p>
+<h2 id="postgresql-backend-1"><a class="header" href="#postgresql-backend-1">PostgreSQL Backend</a></h2>
+<p>PostgreSQL support uses <code>deadpool-postgres</code> for connection pooling with <code>tokio-postgres</code> for async queries.</p>
+<h3 id="features-1"><a class="header" href="#features-1">Features</a></h3>
+<ul>
+<li><strong>Connection pooling</strong> -- configurable pool size via <code>deadpool-postgres</code></li>
+<li><strong>Pool timeouts</strong> -- 30s wait, 10s create, 5s recycle</li>
+<li><strong>Native async</strong> -- all queries use async <code>tokio-postgres</code> directly</li>
+<li><strong>Schema migrations</strong> -- tracked via a <code>schema_migrations</code> table with version and timestamp</li>
+</ul>
+<h3 id="configuration-3"><a class="header" href="#configuration-3">Configuration</a></h3>
+<pre><code class="language-toml">[storage]
+backend = "Postgres"
+retention_days = 90
+
+[storage.postgres]
+connection_string = "postgresql://user:password@localhost:5432/ninety_nine"
+pool_size = 8
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: Selecting <code>backend = "Postgres"</code> without providing <code>[storage.postgres]</code> will result in a configuration error at startup.</p>
+</blockquote>
+<h3 id="migrations-1"><a class="header" href="#migrations-1">Migrations</a></h3>
+<p>PostgreSQL migrations use a <code>schema_migrations</code> table instead of pragmas. The migration system tracks applied versions and only runs new migrations. The schema is identical to SQLite in structure.</p>
+<h2 id="schema"><a class="header" href="#schema">Schema</a></h2>
+<p>The database has four tables, identical in structure across both backends.</p>
+<h3 id="run_sessions"><a class="header" href="#run_sessions"><code>run_sessions</code></a></h3>
+<p>Tracks each detection run session.</p>
+<div class="table-wrapper"><table><thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td>TEXT (UUID)</td><td>Session identifier</td></tr>
+<tr><td><code>started_at</code></td><td>TEXT/TIMESTAMPTZ</td><td>When the session started</td></tr>
+<tr><td><code>finished_at</code></td><td>TEXT/TIMESTAMPTZ</td><td>When the session finished (nullable)</td></tr>
+<tr><td><code>test_count</code></td><td>INTEGER</td><td>Total tests analyzed</td></tr>
+<tr><td><code>flaky_count</code></td><td>INTEGER</td><td>Tests classified as flaky</td></tr>
+<tr><td><code>commit_hash</code></td><td>TEXT</td><td>Git commit at time of run</td></tr>
+<tr><td><code>branch</code></td><td>TEXT</td><td>Git branch at time of run</td></tr>
+</tbody></table>
+</div>
+<h3 id="test_runs"><a class="header" href="#test_runs"><code>test_runs</code></a></h3>
+<p>Individual test execution results.</p>
+<div class="table-wrapper"><table><thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td>TEXT (UUID)</td><td>Run identifier</td></tr>
+<tr><td><code>session_id</code></td><td>TEXT (FK)</td><td>Parent session</td></tr>
+<tr><td><code>test_name</code></td><td>TEXT</td><td>Fully qualified test name</td></tr>
+<tr><td><code>test_path</code></td><td>TEXT</td><td>Binary path</td></tr>
+<tr><td><code>outcome</code></td><td>TEXT</td><td>passed, failed, timeout, panic, ignored</td></tr>
+<tr><td><code>duration_ms</code></td><td>INTEGER/BIGINT</td><td>Execution time in milliseconds</td></tr>
+<tr><td><code>timestamp</code></td><td>TEXT/TIMESTAMPTZ</td><td>When this run occurred</td></tr>
+<tr><td><code>commit_hash</code></td><td>TEXT</td><td>Git commit</td></tr>
+<tr><td><code>branch</code></td><td>TEXT</td><td>Git branch</td></tr>
+<tr><td><code>retry_count</code></td><td>INTEGER</td><td>Number of retries used</td></tr>
+<tr><td><code>error_message</code></td><td>TEXT</td><td>Stderr/stdout on failure (nullable)</td></tr>
+<tr><td><code>stack_trace</code></td><td>TEXT</td><td>Stack trace if available (nullable)</td></tr>
+<tr><td><code>env_os</code></td><td>TEXT</td><td>Operating system</td></tr>
+<tr><td><code>env_rust_version</code></td><td>TEXT</td><td>Rust toolchain version</td></tr>
+<tr><td><code>env_cpu_count</code></td><td>INTEGER</td><td>CPU core count</td></tr>
+<tr><td><code>env_memory_gb</code></td><td>REAL/DOUBLE PRECISION</td><td>System memory in GB</td></tr>
+<tr><td><code>env_is_ci</code></td><td>INTEGER/BOOLEAN</td><td>Whether running in CI</td></tr>
+<tr><td><code>env_ci_provider</code></td><td>TEXT</td><td>CI provider name (nullable)</td></tr>
+</tbody></table>
+</div>
+<p>Indexed on <code>test_name</code>, <code>timestamp</code>, and <code>session_id</code>.</p>
+<h3 id="flakiness_scores"><a class="header" href="#flakiness_scores"><code>flakiness_scores</code></a></h3>
+<p>Latest computed flakiness scores, upserted on <code>test_name</code>.</p>
+<div class="table-wrapper"><table><thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td>TEXT (PK)</td><td>Fully qualified test name</td></tr>
+<tr><td><code>probability_flaky</code></td><td>REAL</td><td>Bayesian P(flaky)</td></tr>
+<tr><td><code>confidence</code></td><td>REAL</td><td>1 - credible interval width</td></tr>
+<tr><td><code>pass_rate</code></td><td>REAL</td><td>Passes / total</td></tr>
+<tr><td><code>fail_rate</code></td><td>REAL</td><td>Failures / total</td></tr>
+<tr><td><code>total_runs</code></td><td>INTEGER</td><td>Number of runs</td></tr>
+<tr><td><code>consecutive_failures</code></td><td>INTEGER</td><td>Trailing failures</td></tr>
+<tr><td><code>last_updated</code></td><td>TEXT/TIMESTAMPTZ</td><td>Last computation time</td></tr>
+<tr><td><code>alpha</code></td><td>REAL</td><td>Beta distribution alpha parameter</td></tr>
+<tr><td><code>beta</code></td><td>REAL</td><td>Beta distribution beta parameter</td></tr>
+<tr><td><code>posterior_mean</code></td><td>REAL</td><td>Posterior mean</td></tr>
+<tr><td><code>posterior_variance</code></td><td>REAL</td><td>Posterior variance</td></tr>
+<tr><td><code>ci_lower</code></td><td>REAL</td><td>95% credible interval lower bound</td></tr>
+<tr><td><code>ci_upper</code></td><td>REAL</td><td>95% credible interval upper bound</td></tr>
+</tbody></table>
+</div>
+<h3 id="quarantine"><a class="header" href="#quarantine"><code>quarantine</code></a></h3>
+<p>Quarantined test records.</p>
+<div class="table-wrapper"><table><thead><tr><th>Column</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td>TEXT (PK)</td><td>Fully qualified test name</td></tr>
+<tr><td><code>quarantined_at</code></td><td>TEXT/TIMESTAMPTZ</td><td>When quarantined</td></tr>
+<tr><td><code>reason</code></td><td>TEXT</td><td>Reason for quarantine</td></tr>
+<tr><td><code>flakiness_score</code></td><td>REAL</td><td>P(flaky) at time of quarantine</td></tr>
+<tr><td><code>auto_quarantined</code></td><td>INTEGER/BOOLEAN</td><td>Whether auto-quarantined</td></tr>
+</tbody></table>
+</div>
+<p>Indexed on <code>quarantined_at</code>.</p>
+<h2 id="data-retention"><a class="header" href="#data-retention">Data Retention</a></h2>
+<p>Old test runs are automatically purged based on the <code>retention_days</code> config (default: 90 days). Purging happens after each <code>test</code> session. Only the <code>test_runs</code> table is purged -- <code>flakiness_scores</code> and <code>quarantine</code> entries persist.</p>
+<pre><code class="language-toml">[storage]
+retention_days = 30
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="cli-reference"><a class="header" href="#cli-reference">CLI Reference</a></h1>
+<h2 id="synopsis"><a class="header" href="#synopsis">Synopsis</a></h2>
+<pre><code>cargo ninety-nine [OPTIONS] &lt;COMMAND&gt;
+</code></pre>
+<h2 id="global-options-1"><a class="header" href="#global-options-1">Global Options</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--project-dir &lt;PATH&gt;</code></td><td><code>.</code></td><td>Project root directory</td></tr>
+<tr><td><code>--output &lt;FORMAT&gt;</code></td><td><code>console</code></td><td>Output format: <code>console</code> or <code>json</code></td></tr>
+<tr><td><code>-v, --verbose</code></td><td>false</td><td>Enable verbose output</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
+<h3 id="test"><a class="header" href="#test">test</a></h3>
+<p>Run tests and detect flakiness. Each discovered test is executed multiple times, scored with Bayesian inference, and results are stored for trend analysis.</p>
+<pre><code>cargo ninety-nine test [OPTIONS] [FILTER_EXPR]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Argument/Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>[FILTER_EXPR]</code></td><td>none</td><td>Filter expression (DSL or test name pattern)</td></tr>
+<tr><td><code>-n, --iterations &lt;N&gt;</code></td><td>from config (<code>min_runs</code>, default 10)</td><td>Number of times to run each test</td></tr>
+<tr><td><code>--confidence &lt;FLOAT&gt;</code></td><td>from config (<code>confidence_threshold</code>, default 0.95)</td><td>Confidence threshold for flaky classification</td></tr>
+</tbody></table>
+</div>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-bash"># Run all tests 10 times each (defaults)
+cargo ninety-nine test
+
+# Run tests matching a substring
+cargo ninety-nine test my_module
+
+# Run with more iterations and stricter confidence
+cargo ninety-nine test -n 25 --confidence 0.99
+
+# Use filter DSL to run only flaky tests
+cargo ninety-nine test "flaky"
+
+# Combine filter predicates
+cargo ninety-nine test "test(my_module) &amp; !quarantined"
+</code></pre>
+<h4 id="filter-dsl-1"><a class="header" href="#filter-dsl-1">Filter DSL</a></h4>
+<p>The optional <code>FILTER_EXPR</code> argument accepts a domain-specific language for filtering tests. If the expression contains no DSL operators, it is treated as a plain test name substring filter.</p>
+<p><strong>Predicates:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Predicate</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test(pattern)</code></td><td>Match test names by regex pattern</td></tr>
+<tr><td><code>package(name)</code></td><td>Match tests in a package (substring match)</td></tr>
+<tr><td><code>binary(name)</code></td><td>Match tests from a specific binary (substring match)</td></tr>
+<tr><td><code>kind(type)</code></td><td>Match by binary kind: <code>lib</code>, <code>bin</code>, <code>test</code>, <code>example</code></td></tr>
+<tr><td><code>flaky</code></td><td>Match tests previously detected as flaky</td></tr>
+<tr><td><code>quarantined</code></td><td>Match quarantined tests</td></tr>
+<tr><td><code>all</code></td><td>Match all tests</td></tr>
+<tr><td><code>bare_word</code></td><td>Treated as <code>test(bare_word)</code> regex pattern</td></tr>
+</tbody></table>
+</div>
+<p><strong>Operators:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Operator</th><th>Meaning</th></tr></thead><tbody>
+<tr><td><code>&amp;</code></td><td>AND -- both sides must match</td></tr>
+<tr><td><code>|</code></td><td>OR -- either side must match</td></tr>
+<tr><td><code>!</code></td><td>NOT -- negate the following expression</td></tr>
+<tr><td><code>( )</code></td><td>Grouping</td></tr>
+</tbody></table>
+</div>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-bash"># Tests matching a regex
+cargo ninety-nine test "test(my_module::.*)"
+
+# Flaky tests that are not quarantined
+cargo ninety-nine test "flaky &amp; !quarantined"
+
+# Tests in a specific package or binary kind
+cargo ninety-nine test "package(my_crate) | kind(test)"
+
+# Complex expression with grouping
+cargo ninety-nine test "(flaky | test(slow)) &amp; !quarantined"
+</code></pre>
+<hr />
+<h3 id="init"><a class="header" href="#init">init</a></h3>
+<p>Initialize a <code>.ninety-nine.toml</code> configuration file in the project root.</p>
+<pre><code>cargo ninety-nine init [OPTIONS]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--force</code></td><td>Overwrite existing config file</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h3 id="status"><a class="header" href="#status">status</a></h3>
+<p>Show flakiness status for tests.</p>
+<pre><code>cargo ninety-nine status [TEST_NAME]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>[TEST_NAME]</code></td><td>Show detailed status for a specific test. Omit to show all scores.</td></tr>
+</tbody></table>
+</div>
+<p>When a test name is provided, shows: category, P(flaky), pass rate, total runs, consecutive failures, credible interval, trend direction, failure patterns, and recent run history.</p>
+<hr />
+<h3 id="history"><a class="header" href="#history">history</a></h3>
+<p>Show detection session history.</p>
+<pre><code>cargo ninety-nine history [OPTIONS] [FILTER]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Argument/Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>[FILTER]</code></td><td>none</td><td>Filter by test name</td></tr>
+<tr><td><code>-n, --limit &lt;N&gt;</code></td><td>20</td><td>Maximum sessions to show</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h3 id="export"><a class="header" href="#export">export</a></h3>
+<p>Export flakiness data to a file.</p>
+<pre><code>cargo ninety-nine export &lt;FORMAT&gt; &lt;PATH&gt;
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Values</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;FORMAT&gt;</code></td><td><code>junit</code>, <code>html</code>, <code>csv</code>, <code>json</code></td><td>Export format</td></tr>
+<tr><td><code>&lt;PATH&gt;</code></td><td>file path</td><td>Output file path</td></tr>
+</tbody></table>
+</div>
+<hr />
+<h3 id="quarantine-1"><a class="header" href="#quarantine-1">quarantine</a></h3>
+<p>Manage test quarantine.</p>
+<h4 id="quarantine-list"><a class="header" href="#quarantine-list">quarantine list</a></h4>
+<pre><code>cargo ninety-nine quarantine list
+</code></pre>
+<p>Lists all quarantined tests with their quarantine date, reason, flakiness score, and whether they were auto-quarantined.</p>
+<h4 id="quarantine-add"><a class="header" href="#quarantine-add">quarantine add</a></h4>
+<pre><code>cargo ninety-nine quarantine add &lt;TEST_NAME&gt; [OPTIONS]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>--reason &lt;TEXT&gt;</code></td><td><code>"manually quarantined"</code></td><td>Reason for quarantine</td></tr>
+</tbody></table>
+</div>
+<h4 id="quarantine-remove"><a class="header" href="#quarantine-remove">quarantine remove</a></h4>
+<pre><code>cargo ninety-nine quarantine remove &lt;TEST_NAME&gt;
+</code></pre>
+<hr />
+<h3 id="ci"><a class="header" href="#ci">ci</a></h3>
+<p>CI integration helpers.</p>
+<h4 id="ci-generate"><a class="header" href="#ci-generate">ci generate</a></h4>
+<p>Generate a CI workflow file for flaky test detection.</p>
+<pre><code>cargo ninety-nine ci generate &lt;PROVIDER&gt; [PATH]
+</code></pre>
+<div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Values</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;PROVIDER&gt;</code></td><td><code>github</code>, <code>gitlab</code></td><td>CI provider</td></tr>
+<tr><td><code>[PATH]</code></td><td>file path</td><td>Output file path (default: stdout)</td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="configuration-reference"><a class="header" href="#configuration-reference">Configuration Reference</a></h1>
+<p>All configuration lives in <code>.ninety-nine.toml</code> at the project root. Every field has a default value -- you only need to specify overrides.</p>
+<h2 id="detection"><a class="header" href="#detection"><code>[detection]</code></a></h2>
+<p>Controls how tests are discovered and analyzed.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>min_runs</code></td><td>u32</td><td><code>10</code></td><td>Minimum number of runs per test</td></tr>
+<tr><td><code>confidence_threshold</code></td><td>f64</td><td><code>0.95</code></td><td>Confidence level required to classify as flaky</td></tr>
+<tr><td><code>window_size</code></td><td>u32</td><td><code>100</code></td><td>Number of recent runs used for trend analysis</td></tr>
+<tr><td><code>detection_methods</code></td><td>list</td><td><code>["Bayesian"]</code></td><td>Enabled detection methods</td></tr>
+<tr><td><code>auto_detect</code></td><td>bool</td><td><code>true</code></td><td>Automatically detect and run</td></tr>
+<tr><td><code>parallel_runs</code></td><td>u32</td><td><code>3</code></td><td>Number of concurrent test executions</td></tr>
+</tbody></table>
+</div>
+<h3 id="detection-methods"><a class="header" href="#detection-methods">Detection Methods</a></h3>
+<p>Only one detection method is currently implemented:</p>
+<ul>
+<li><code>Bayesian</code> -- Beta distribution posterior inference using conjugate priors</li>
+</ul>
+<h3 id="detectionduration_regression"><a class="header" href="#detectionduration_regression"><code>[detection.duration_regression]</code></a></h3>
+<p>Optional configuration for detecting tests whose execution time has significantly increased.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>enabled</code></td><td>bool</td><td>--</td><td>Enable duration regression detection</td></tr>
+<tr><td><code>min_history_runs</code></td><td>u32</td><td>--</td><td>Minimum historical runs required before checking</td></tr>
+<tr><td><code>threshold</code></td><td>enum</td><td>--</td><td>How to determine a regression (see below)</td></tr>
+</tbody></table>
+</div>
+<p>Duration regression is disabled by default (the entire section is <code>None</code>). To enable it, provide the full section:</p>
+<pre><code class="language-toml">[detection.duration_regression]
+enabled = true
+min_history_runs = 10
+
+# Option A: flag when latest duration exceeds N standard deviations above the mean
+[detection.duration_regression.threshold]
+StdDev = 2.0
+
+# Option B: flag when latest duration exceeds mean * multiplier
+# [detection.duration_regression.threshold]
+# Multiplier = 3.0
+</code></pre>
+<p><strong>Threshold variants:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>StdDev(f64)</code></td><td>Flag when the latest duration is more than N standard deviations above the historical mean</td></tr>
+<tr><td><code>Multiplier(f64)</code></td><td>Flag when the latest duration exceeds the historical mean multiplied by this factor</td></tr>
+</tbody></table>
+</div>
+<h2 id="retry"><a class="header" href="#retry"><code>[retry]</code></a></h2>
+<p>Controls retry behavior when tests fail.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>unit_test_retries</code></td><td>u32</td><td><code>2</code></td><td>Number of retries for failed tests</td></tr>
+<tr><td><code>backoff_strategy</code></td><td>enum</td><td><code>Exponential</code></td><td>Backoff strategy between retries</td></tr>
+<tr><td><code>max_retry_time_secs</code></td><td>u64</td><td><code>300</code></td><td>Maximum total time for retries (seconds)</td></tr>
+</tbody></table>
+</div>
+<h3 id="backoff-strategies"><a class="header" href="#backoff-strategies">Backoff Strategies</a></h3>
+<pre><code class="language-toml"># No delay between retries
+[retry]
+backoff_strategy = "None"
+
+# Fixed delay
+[retry.backoff_strategy]
+Linear = { delay_ms = 200 }
+
+# Exponential backoff (default: base_ms=100, factor=2.0, max_ms=5000)
+[retry.backoff_strategy]
+Exponential = { base_ms = 100, factor = 2.0, max_ms = 5000 }
+
+# Fibonacci sequence delays
+[retry.backoff_strategy]
+Fibonacci = { start_ms = 100, max_ms = 5000 }
+</code></pre>
+<h2 id="quarantine-2"><a class="header" href="#quarantine-2"><code>[quarantine]</code></a></h2>
+<p>Controls test quarantine behavior.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>enabled</code></td><td>bool</td><td><code>true</code></td><td>Enable quarantine functionality</td></tr>
+<tr><td><code>auto_quarantine</code></td><td>bool</td><td><code>false</code></td><td>Automatically quarantine tests exceeding thresholds</td></tr>
+<tr><td><code>max_quarantine_days</code></td><td>u32</td><td><code>30</code></td><td>Maximum days a test stays quarantined</td></tr>
+</tbody></table>
+</div>
+<h3 id="quarantinethreshold-1"><a class="header" href="#quarantinethreshold-1"><code>[quarantine.threshold]</code></a></h3>
+<p>Thresholds for auto-quarantine. A test must be classified as flaky AND exceed at least one threshold.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>consecutive_failures</code></td><td>u32</td><td><code>3</code></td><td>Consecutive trailing failures</td></tr>
+<tr><td><code>failure_rate</code></td><td>f64</td><td><code>0.20</code></td><td>Overall failure rate</td></tr>
+<tr><td><code>flakiness_score</code></td><td>f64</td><td><code>0.15</code></td><td>Bayesian P(flaky)</td></tr>
+</tbody></table>
+</div>
+<h2 id="storage-1"><a class="header" href="#storage-1"><code>[storage]</code></a></h2>
+<p>Controls data persistence. Two backends are supported: SQLite (default) and PostgreSQL.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>backend</code></td><td>enum</td><td><code>"Sqlite"</code></td><td>Storage backend: <code>Sqlite</code> or <code>Postgres</code></td></tr>
+<tr><td><code>retention_days</code></td><td>u32</td><td><code>90</code></td><td>Days to keep test run data</td></tr>
+</tbody></table>
+</div>
+<h3 id="storagesqlite"><a class="header" href="#storagesqlite"><code>[storage.sqlite]</code></a></h3>
+<p>SQLite-specific settings. Only used when <code>backend = "Sqlite"</code>.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>database_path</code></td><td>path</td><td><code>$XDG_DATA_HOME/ninety-nine/ninety-nine.db</code></td><td>Path to the SQLite database file</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-toml">[storage]
+backend = "Sqlite"
+retention_days = 90
+
+[storage.sqlite]
+database_path = ".ninety-nine/data.db"
+</code></pre>
+<h3 id="storagepostgres"><a class="header" href="#storagepostgres"><code>[storage.postgres]</code></a></h3>
+<p>PostgreSQL-specific settings. Required when <code>backend = "Postgres"</code>.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>connection_string</code></td><td>string</td><td>--</td><td>PostgreSQL connection URL</td></tr>
+<tr><td><code>pool_size</code></td><td>u32</td><td>--</td><td>Connection pool size</td></tr>
+</tbody></table>
+</div>
+<pre><code class="language-toml">[storage]
+backend = "Postgres"
+retention_days = 90
+
+[storage.postgres]
+connection_string = "postgresql://user:password@localhost:5432/ninety_nine"
+pool_size = 8
+</code></pre>
+<blockquote>
+<p><strong>Warning</strong>: Setting <code>backend = "Postgres"</code> without providing <code>[storage.postgres]</code> will cause a startup error.</p>
+</blockquote>
+<h2 id="reporting"><a class="header" href="#reporting"><code>[reporting]</code></a></h2>
+<p>Controls output behavior.</p>
+<h3 id="reportingconsole"><a class="header" href="#reportingconsole"><code>[reporting.console]</code></a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>summary_only</code></td><td>bool</td><td><code>false</code></td><td>Show only summary counts instead of full table</td></tr>
+</tbody></table>
+</div>
+<h2 id="ci-1"><a class="header" href="#ci-1"><code>[ci]</code></a></h2>
+<p>CI integration settings.</p>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>provider</code></td><td>enum</td><td>none</td><td>CI provider for workflow generation</td></tr>
+</tbody></table>
+</div>
+<p>Supported providers: <code>GitHub</code>, <code>GitLab</code>, <code>Jenkins</code>, <code>CircleCI</code>, <code>AzureDevOps</code>, <code>Buildkite</code>.</p>
+<pre><code class="language-toml">[ci]
+provider = "GitHub"
+</code></pre>
+<h2 id="full-example"><a class="header" href="#full-example">Full Example</a></h2>
+<pre><code class="language-toml">[detection]
+min_runs = 20
+confidence_threshold = 0.99
+window_size = 50
+detection_methods = ["Bayesian"]
+auto_detect = true
+parallel_runs = 4
+
+[detection.duration_regression]
+enabled = true
+min_history_runs = 10
+
+[detection.duration_regression.threshold]
+StdDev = 2.5
+
+[retry]
+unit_test_retries = 3
+max_retry_time_secs = 120
+
+[retry.backoff_strategy]
+Exponential = { base_ms = 200, factor = 2.0, max_ms = 10000 }
+
+[quarantine]
+enabled = true
+auto_quarantine = true
+max_quarantine_days = 14
+
+[quarantine.threshold]
+consecutive_failures = 5
+failure_rate = 0.15
+flakiness_score = 0.10
+
+[storage]
+backend = "Sqlite"
+retention_days = 60
+
+[storage.sqlite]
+database_path = ".ninety-nine/data.db"
+
+[reporting.console]
+summary_only = false
+
+[ci]
+provider = "GitHub"
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,488 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Types - cargo ninety-nine</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A cargo plugin for finding and tracking flaky tests using Bayesian inference">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">cargo ninety-nine</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/glottologist/ninety-nine" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="types-reference"><a class="header" href="#types-reference">Types Reference</a></h1>
+<p>This chapter documents the core types used throughout <code>cargo-ninety-nine</code>.</p>
+<h2 id="test-execution"><a class="header" href="#test-execution">Test Execution</a></h2>
+<h3 id="testrun"><a class="header" href="#testrun"><code>TestRun</code></a></h3>
+<p>A single test execution record with full metadata.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestRun {
+    pub id: Uuid,
+    pub test_name: TestName,
+    pub test_path: PathBuf,
+    pub outcome: TestOutcome,
+    pub duration: Duration,
+    pub timestamp: DateTime&lt;Utc&gt;,
+    pub commit_hash: String,
+    pub branch: String,
+    pub environment: TestEnvironment,
+    pub retry_count: u32,
+    pub error_message: Option&lt;String&gt;,
+    pub stack_trace: Option&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>id</code></td><td><code>Uuid</code></td><td>Unique identifier for this run</td></tr>
+<tr><td><code>test_name</code></td><td><code>TestName</code></td><td>Type-safe test name</td></tr>
+<tr><td><code>test_path</code></td><td><code>PathBuf</code></td><td>Path to the test binary</td></tr>
+<tr><td><code>outcome</code></td><td><code>TestOutcome</code></td><td>Result of the execution</td></tr>
+<tr><td><code>duration</code></td><td><code>Duration</code></td><td>Wall-clock execution time</td></tr>
+<tr><td><code>timestamp</code></td><td><code>DateTime&lt;Utc&gt;</code></td><td>When the run occurred</td></tr>
+<tr><td><code>commit_hash</code></td><td><code>String</code></td><td>Git commit at time of run</td></tr>
+<tr><td><code>branch</code></td><td><code>String</code></td><td>Git branch at time of run</td></tr>
+<tr><td><code>environment</code></td><td><code>TestEnvironment</code></td><td>Execution environment details</td></tr>
+<tr><td><code>retry_count</code></td><td><code>u32</code></td><td>Number of retries before this result</td></tr>
+<tr><td><code>error_message</code></td><td><code>Option&lt;String&gt;</code></td><td>Failure message, if any</td></tr>
+<tr><td><code>stack_trace</code></td><td><code>Option&lt;String&gt;</code></td><td>Stack trace on panic/failure</td></tr>
+</tbody></table>
+</div>
+<h3 id="testoutcome"><a class="header" href="#testoutcome"><code>TestOutcome</code></a></h3>
+<p>Classification of a test execution result.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TestOutcome {
+    Passed,
+    Failed,
+    Ignored,
+    Timeout,
+    Panic,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>Passed</code></td><td>Test completed successfully (exit code 0)</td></tr>
+<tr><td><code>Failed</code></td><td>Test assertion failed (non-zero exit, no panic)</td></tr>
+<tr><td><code>Ignored</code></td><td>Test marked with <code>#[ignore]</code></td></tr>
+<tr><td><code>Timeout</code></td><td>Test exceeded the configured timeout</td></tr>
+<tr><td><code>Panic</code></td><td>Test panicked (detected via <code>panicked at</code> in output)</td></tr>
+</tbody></table>
+</div>
+<p>Implements <code>Display</code> and <code>FromStr</code> for serialization. Display values: <code>"passed"</code>, <code>"failed"</code>, <code>"ignored"</code>, <code>"timeout"</code>, <code>"panic"</code>.</p>
+<h3 id="testenvironment"><a class="header" href="#testenvironment"><code>TestEnvironment</code></a></h3>
+<p>Captures the environment where tests execute, used for pattern correlation.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestEnvironment {
+    pub os: String,
+    pub rust_version: String,
+    pub cpu_count: u32,
+    pub memory_gb: f64,
+    pub is_ci: bool,
+    pub ci_provider: Option&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Auto-detected at runtime from the host system. The <code>is_ci</code> field is inferred from environment variables (<code>GITHUB_ACTIONS</code>, <code>GITLAB_CI</code>, <code>JENKINS_URL</code>, <code>CIRCLECI</code>, <code>TF_BUILD</code>, <code>BUILDKITE</code>).</p>
+<h3 id="testname"><a class="header" href="#testname"><code>TestName</code></a></h3>
+<p>Newtype wrapper providing type-safe test names. Prevents accidental confusion with branch names, commit hashes, or other string fields.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestName(String);
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Conversions:</strong></p>
+<ul>
+<li><code>From&lt;String&gt;</code>, <code>From&lt;&amp;str&gt;</code> — construct from strings</li>
+<li><code>Deref&lt;Target = str&gt;</code> — borrow as <code>&amp;str</code></li>
+<li><code>AsRef&lt;str&gt;</code> — reference conversion</li>
+<li><code>Display</code> — format for output</li>
+<li><code>PartialEq&lt;str&gt;</code>, <code>PartialEq&lt;&amp;str&gt;</code> — compare with string values</li>
+</ul>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>into_inner(self) -&gt; String</code> — consume and return the inner string</li>
+</ul>
+<h2 id="flakiness-detection"><a class="header" href="#flakiness-detection">Flakiness Detection</a></h2>
+<h3 id="flakinessscore"><a class="header" href="#flakinessscore"><code>FlakinessScore</code></a></h3>
+<p>The primary output of the Bayesian detection engine. Contains the computed probability that a test is flaky along with statistical parameters.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct FlakinessScore {
+    pub test_name: TestName,
+    pub probability_flaky: f64,
+    pub confidence: f64,
+    pub pass_rate: f64,
+    pub fail_rate: f64,
+    pub total_runs: u64,
+    pub consecutive_failures: u32,
+    pub last_updated: DateTime&lt;Utc&gt;,
+    pub bayesian_params: BayesianParams,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Type</th><th>Range</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>probability_flaky</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Posterior mean P(failure)</td></tr>
+<tr><td><code>confidence</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>1 - credible interval width (higher = more certain)</td></tr>
+<tr><td><code>pass_rate</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Fraction of runs that passed</td></tr>
+<tr><td><code>fail_rate</code></td><td><code>f64</code></td><td>[0.0, 1.0]</td><td>Fraction of runs that failed (= 1 - pass_rate)</td></tr>
+<tr><td><code>total_runs</code></td><td><code>u64</code></td><td>—</td><td>Number of non-ignored executions</td></tr>
+<tr><td><code>consecutive_failures</code></td><td><code>u32</code></td><td>—</td><td>Trailing failure streak count</td></tr>
+</tbody></table>
+</div>
+<h3 id="bayesianparams"><a class="header" href="#bayesianparams"><code>BayesianParams</code></a></h3>
+<p>Full Bayesian computation state stored for auditability.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct BayesianParams {
+    pub alpha: f64,
+    pub beta: f64,
+    pub posterior_mean: f64,
+    pub posterior_variance: f64,
+    pub credible_interval_lower: f64,
+    pub credible_interval_upper: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>alpha</code></td><td>Beta distribution shape parameter (prior + failures)</td></tr>
+<tr><td><code>beta</code></td><td>Beta distribution shape parameter (prior + passes)</td></tr>
+<tr><td><code>posterior_mean</code></td><td><code>alpha / (alpha + beta)</code></td></tr>
+<tr><td><code>posterior_variance</code></td><td><code>(alpha * beta) / ((alpha + beta)^2 * (alpha + beta + 1))</code></td></tr>
+<tr><td><code>credible_interval_lower</code></td><td>2.5th percentile of posterior Beta distribution</td></tr>
+<tr><td><code>credible_interval_upper</code></td><td>97.5th percentile of posterior Beta distribution</td></tr>
+</tbody></table>
+</div>
+<h3 id="flakinesscategory"><a class="header" href="#flakinesscategory"><code>FlakinessCategory</code></a></h3>
+<p>Human-readable classification of flakiness severity.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum FlakinessCategory {
+    Stable,
+    Occasional,
+    Moderate,
+    Frequent,
+    Critical,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Category</th><th>Score Range</th><th>Console Color</th></tr></thead><tbody>
+<tr><td>Stable</td><td>&lt; 0.01</td><td>Green</td></tr>
+<tr><td>Occasional</td><td>0.01 – 0.05</td><td>Yellow</td></tr>
+<tr><td>Moderate</td><td>0.05 – 0.15</td><td>Orange</td></tr>
+<tr><td>Frequent</td><td>0.15 – 0.30</td><td>Red</td></tr>
+<tr><td>Critical</td><td>&gt;= 0.30</td><td>Dark Red</td></tr>
+</tbody></table>
+</div>
+<p><strong>Methods:</strong></p>
+<ul>
+<li><code>from_score(score: f64) -&gt; Self</code> — classify a probability value</li>
+<li><code>label(&amp;self) -&gt; &amp;'static str</code> — human-readable label</li>
+</ul>
+<h2 id="sessions"><a class="header" href="#sessions">Sessions</a></h2>
+<h3 id="activesession"><a class="header" href="#activesession"><code>ActiveSession</code></a></h3>
+<p>Represents a running test session. Created via <code>start()</code>, consumed by <code>into_run_session()</code> to produce a storable <code>RunSession</code>. Ownership semantics prevent double-finish bugs.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ActiveSession { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Methods:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Signature</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>start</code></td><td><code>fn start(commit_hash: &amp;str, branch: &amp;str) -&gt; Self</code></td><td>Create a new session</td></tr>
+<tr><td><code>id</code></td><td><code>fn id(&amp;self) -&gt; &amp;Uuid</code></td><td>Get session UUID</td></tr>
+<tr><td><code>into_run_session</code></td><td><code>fn into_run_session(self) -&gt; RunSession</code></td><td>Convert to storable form (consuming)</td></tr>
+<tr><td><code>to_run_session</code></td><td><code>fn to_run_session(&amp;self) -&gt; RunSession</code></td><td>Convert to storable form (borrowing)</td></tr>
+</tbody></table>
+</div>
+<h3 id="runsession"><a class="header" href="#runsession"><code>RunSession</code></a></h3>
+<p>A session record suitable for storage. May represent a running or completed session.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct RunSession {
+    pub id: Uuid,
+    pub started_at: DateTime&lt;Utc&gt;,
+    pub finished_at: Option&lt;DateTime&lt;Utc&gt;&gt;,
+    pub test_count: u32,
+    pub flaky_count: u32,
+    pub commit_hash: String,
+    pub branch: String,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="quarantineentry"><a class="header" href="#quarantineentry"><code>QuarantineEntry</code></a></h3>
+<p>A quarantined test record.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct QuarantineEntry {
+    pub test_name: TestName,
+    pub quarantined_at: DateTime&lt;Utc&gt;,
+    pub reason: String,
+    pub flakiness_score: f64,
+    pub auto_quarantined: bool,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+<h3 id="trenddirection"><a class="header" href="#trenddirection"><code>TrendDirection</code></a></h3>
+<p>Direction of flakiness change over time.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TrendDirection {
+    Improving,
+    Stable,
+    Degrading,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>A delta exceeding 0.05 (5%) triggers <code>Improving</code> (decreased flakiness) or <code>Degrading</code> (increased flakiness). Otherwise <code>Stable</code>.</p>
+<h3 id="trendsummary"><a class="header" href="#trendsummary"><code>TrendSummary</code></a></h3>
+<p>Trend analysis result comparing recent vs. historical flakiness.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TrendSummary {
+    pub test_name: TestName,
+    pub direction: TrendDirection,
+    pub recent_score: f64,
+    pub previous_score: f64,
+    pub score_delta: f64,
+    pub window_runs: u64,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="failurepattern"><a class="header" href="#failurepattern"><code>FailurePattern</code></a></h3>
+<p>A detected failure pattern with correlation strength.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct FailurePattern {
+    pub pattern_type: PatternType,
+    pub occurrences: u32,
+    pub correlation: f64,
+    pub examples: Vec&lt;String&gt;,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="patterntype"><a class="header" href="#patterntype"><code>PatternType</code></a></h3>
+<p>Classification of detected failure patterns.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum PatternType {
+    TimeOfDay,
+    Environmental,
+    Random,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Trigger</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>TimeOfDay</code></td><td>Failure concentration &gt; 3x expected in a specific hour</td><td>Failures cluster at a particular time</td></tr>
+<tr><td><code>Environmental</code></td><td>CI vs. local failure rate difference &gt; 15%</td><td>Environment-specific failures</td></tr>
+<tr><td><code>Random</code></td><td>No pattern detected</td><td>Failures appear randomly distributed</td></tr>
+</tbody></table>
+</div>
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../guides/troubleshooting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../api/detector.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../guides/troubleshooting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../api/detector.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

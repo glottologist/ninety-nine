@@ -1,0 +1,372 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Analysis - cargo ninety-nine</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A cargo plugin for finding and tracking flaky tests using Bayesian inference">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">cargo ninety-nine</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/glottologist/ninety-nine" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="analysis-api"><a class="header" href="#analysis-api">Analysis API</a></h1>
+<p>The analysis module provides three capabilities: failure rate computation, trend detection, and failure pattern recognition.</p>
+<h2 id="failure-rate"><a class="header" href="#failure-rate">Failure Rate</a></h2>
+<h3 id="failure_rate"><a class="header" href="#failure_rate"><code>failure_rate</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn failure_rate(runs: &amp;[&amp;TestRun]) -&gt; f64
+<span class="boring">}</span></code></pre></pre>
+<p>Computes the fraction of runs that resulted in a failure outcome.</p>
+<div class="table-wrapper"><table><thead><tr><th>Outcome</th><th>Counted as</th></tr></thead><tbody>
+<tr><td><code>Passed</code></td><td>Non-failure</td></tr>
+<tr><td><code>Ignored</code></td><td>Non-failure</td></tr>
+<tr><td><code>Failed</code></td><td>Failure</td></tr>
+<tr><td><code>Panic</code></td><td>Failure</td></tr>
+<tr><td><code>Timeout</code></td><td>Failure</td></tr>
+</tbody></table>
+</div>
+<p><strong>Returns:</strong> A value in <code>[0.0, 1.0]</code>. Returns <code>0.0</code> for empty input.</p>
+<h2 id="trend-detection"><a class="header" href="#trend-detection">Trend Detection</a></h2>
+<h3 id="calculate_trend"><a class="header" href="#calculate_trend"><code>calculate_trend</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn calculate_trend(
+    test_name: &amp;str,
+    runs: &amp;[TestRun],
+    window: u32,
+) -&gt; Option&lt;TrendSummary&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Analyzes the direction of flakiness change by comparing recent runs against historical runs.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td><code>&amp;str</code></td><td>Name of the test being analyzed</td></tr>
+<tr><td><code>runs</code></td><td><code>&amp;[TestRun]</code></td><td>Runs to analyze (newest first not required)</td></tr>
+<tr><td><code>window</code></td><td><code>u32</code></td><td>Maximum number of runs to consider</td></tr>
+</tbody></table>
+</div>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Takes up to <code>window</code> most recent runs</li>
+<li>Requires a minimum of 4 runs; returns <code>None</code> otherwise</li>
+<li>Splits runs at the midpoint into "recent" (first half) and "previous" (second half)</li>
+<li>Computes failure rate for each half</li>
+<li>Classifies direction based on the delta:
+<ul>
+<li>Delta &lt; -0.05 (5% improvement): <code>Improving</code></li>
+<li>Delta &gt; +0.05 (5% regression): <code>Degrading</code></li>
+<li>Otherwise: <code>Stable</code></li>
+</ul>
+</li>
+</ol>
+<p><strong>Returns:</strong> <code>Some(TrendSummary)</code> with direction, scores, and delta, or <code>None</code> if insufficient data.</p>
+<h2 id="duration-regression"><a class="header" href="#duration-regression">Duration Regression</a></h2>
+<h3 id="detect_duration_regressions"><a class="header" href="#detect_duration_regressions"><code>detect_duration_regressions</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_duration_regressions(
+    test_name: &amp;str,
+    runs: &amp;[TestRun],
+    min_history: usize,
+    threshold_std_devs: f64,
+) -&gt; Option&lt;DurationRegression&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Detects if the most recent test run is significantly slower than historical runs.</p>
+<div class="table-wrapper"><table><thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>test_name</code></td><td><code>&amp;str</code></td><td>Name of the test</td></tr>
+<tr><td><code>runs</code></td><td><code>&amp;[TestRun]</code></td><td>Historical runs (at least <code>min_history</code> required)</td></tr>
+<tr><td><code>min_history</code></td><td><code>usize</code></td><td>Minimum number of historical runs required</td></tr>
+<tr><td><code>threshold_std_devs</code></td><td><code>f64</code></td><td>Number of standard deviations above mean to trigger regression</td></tr>
+</tbody></table>
+</div>
+<p><strong>Algorithm:</strong></p>
+<ol>
+<li>Returns <code>None</code> if fewer than <code>min_history</code> runs</li>
+<li>Computes mean and standard deviation of all run durations</li>
+<li>Returns <code>None</code> if standard deviation is near zero (all durations constant)</li>
+<li>Checks if the latest run duration exceeds <code>mean + (threshold × std_dev)</code></li>
+<li>Returns <code>DurationRegression</code> with deviation statistics</li>
+</ol>
+<h3 id="durationregression"><a class="header" href="#durationregression"><code>DurationRegression</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct DurationRegression {
+    pub test_name: String,
+    pub current_ms: i64,
+    pub mean_ms: i64,
+    pub std_dev_ms: i64,
+    pub deviation_factor: f64,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>current_ms</code></td><td>Duration of the latest run in milliseconds</td></tr>
+<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds</td></tr>
+<tr><td><code>std_dev_ms</code></td><td>Historical standard deviation in milliseconds</td></tr>
+<tr><td><code>deviation_factor</code></td><td>How many standard deviations above mean: <code>(current - mean) / std_dev</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="pattern-detection"><a class="header" href="#pattern-detection">Pattern Detection</a></h2>
+<h3 id="detect_patterns"><a class="header" href="#detect_patterns"><code>detect_patterns</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_patterns(runs: &amp;[TestRun]) -&gt; Vec&lt;FailurePattern&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Scans test runs for recurring failure patterns. Returns all detected patterns.</p>
+<p><strong>Detection strategies:</strong></p>
+<h4 id="time-of-day-pattern"><a class="header" href="#time-of-day-pattern">Time-of-Day Pattern</a></h4>
+<p>Bins all failures by hour (0–23). If any hour contains more than 3x the expected random concentration, a <code>TimeOfDay</code> pattern is reported.</p>
+<ul>
+<li>Correlation value: ratio of peak-hour failures to total failures</li>
+<li>Examples: formatted as <code>"Hour HH: N failures"</code> for the peak hour</li>
+</ul>
+<h4 id="environmental-pattern"><a class="header" href="#environmental-pattern">Environmental Pattern</a></h4>
+<p>Compares failure rates between CI and local environments. If the difference exceeds 15%, an <code>Environmental</code> pattern is reported.</p>
+<ul>
+<li>Correlation value: absolute difference between CI and local failure rates</li>
+<li>Examples: formatted as <code>"CI failure rate: X%, local: Y%"</code></li>
+</ul>
+<h4 id="random-fallback"><a class="header" href="#random-fallback">Random Fallback</a></h4>
+<p>If no time-of-day or environmental pattern is detected, a <code>Random</code> pattern is returned with correlation <code>0.0</code>, indicating failures appear uniformly distributed.</p>
+<h2 id="usage-example"><a class="header" href="#usage-example">Usage Example</a></h2>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use cargo_ninety_nine::analysis::{calculate_trend, detect_patterns};
+use cargo_ninety_nine::analysis::duration::detect_duration_regressions;
+
+// Trend analysis
+if let Some(trend) = calculate_trend("tests::my_test", &amp;runs, 100) {
+    println!("Trend: {} (delta: {:.2})", trend.direction, trend.score_delta);
+}
+
+// Duration regression
+if let Some(reg) = detect_duration_regressions("tests::my_test", &amp;runs, 5, 2.0) {
+    println!("SLOW: {}ms vs mean {}ms ({:.1}x std_dev)",
+        reg.current_ms, reg.mean_ms, reg.deviation_factor);
+}
+
+// Pattern detection
+for pattern in detect_patterns(&amp;runs) {
+    println!("Pattern: {} (correlation: {:.2})", pattern.pattern_type, pattern.correlation);
+}
+<span class="boring">}</span></code></pre></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../api/detector.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../api/filter.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../api/detector.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../api/filter.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>

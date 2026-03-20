@@ -12,6 +12,19 @@
   - [Quarantine Management](./guides/quarantine.md)
   - [Exporting Results](./guides/exporting.md)
   - [CI Integration](./guides/ci-integration.md)
+- [Best Practices](./guides/best-practices.md)
+- [Troubleshooting](./guides/troubleshooting.md)
+
+# API Reference
+
+- [Types](./api/types.md)
+- [Bayesian Detector](./api/detector.md)
+- [Analysis](./api/analysis.md)
+- [Filter DSL](./api/filter.md)
+- [Storage](./api/storage.md)
+- [Runner](./api/runner.md)
+- [Configuration](./api/config.md)
+- [Error Types](./api/errors.md)
 
 # Reference
 

@@ -1,0 +1,419 @@
+<!DOCTYPE HTML>
+<html lang="en" class="navy sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Runner - cargo ninety-nine</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A cargo plugin for finding and tracking flaky tests using Bayesian inference">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "navy";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('navy')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">cargo ninety-nine</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/glottologist/ninety-nine" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="runner-api"><a class="header" href="#runner-api">Runner API</a></h1>
+<p>The runner module handles test discovery, execution, and result collection.</p>
+<h2 id="test-discovery"><a class="header" href="#test-discovery">Test Discovery</a></h2>
+<h3 id="discover_test_binaries"><a class="header" href="#discover_test_binaries"><code>discover_test_binaries</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn discover_test_binaries(
+    project_root: &amp;Path,
+) -&gt; Result&lt;Vec&lt;TestBinary&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Discovers all test binaries in a Cargo project by running <code>cargo test --no-run --message-format json-render-diagnostics</code> and parsing the output.</p>
+<p><strong>Returns:</strong> A list of <code>TestBinary</code> structs, each containing the binary path, package name, and kind.</p>
+<p><strong>Errors:</strong> Returns <code>BinaryDiscovery</code> if cargo fails or output cannot be parsed.</p>
+<h3 id="list_tests_parallel"><a class="header" href="#list_tests_parallel"><code>list_tests_parallel</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub async fn list_tests_parallel(
+    binaries: &amp;[TestBinary],
+    concurrency: usize,
+) -&gt; Result&lt;Vec&lt;TestCase&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Lists all tests across multiple binaries concurrently. Each binary is invoked with <code>--list --format terse</code> and output lines ending with <code>: test</code> or <code>: benchmark</code> are parsed.</p>
+<p>Uses <code>tokio::sync::Semaphore</code> for concurrency control.</p>
+<p><strong>Errors:</strong> Returns <code>TestListing</code> if a binary fails to produce test listings.</p>
+<h3 id="detect_available_runner"><a class="header" href="#detect_available_runner"><code>detect_available_runner</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn detect_available_runner() -&gt; Option&lt;AvailableRunner&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Checks if a test runner is available on the system.</p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum AvailableRunner {
+    Nextest,
+    CargoTest,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Prefers <code>cargo-nextest</code> if installed, falls back to <code>cargo test</code>.</p>
+<h2 id="test-execution"><a class="header" href="#test-execution">Test Execution</a></h2>
+<h3 id="executor"><a class="header" href="#executor"><code>Executor</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct Executor&lt;'a&gt; {
+    config: &amp;'a ExecutionConfig,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Runs individual test cases with retry support.</p>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn new(config: &amp;'a ExecutionConfig) -&gt; Self
+<span class="boring">}</span></code></pre></pre>
+<h4 id="run_single"><a class="header" href="#run_single"><code>run_single</code></a></h4>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn run_single(
+    &amp;self,
+    test_case: &amp;TestCase,
+) -&gt; Result&lt;TestResult, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Executes a single test case with retries. Spawns the test binary with the <code>--exact</code> flag targeting the specific test.</p>
+<p><strong>Retry behavior:</strong></p>
+<ul>
+<li>Retries up to <code>config.retries</code> times on failure</li>
+<li>Stops immediately on first pass</li>
+<li>Applies <code>config.retry_delay</code> between attempts</li>
+</ul>
+<p><strong>Timeout:</strong> Uses polling-based detection (50ms intervals). Kills the process when the deadline is exceeded, returning <code>TestOutcome::Timeout</code>.</p>
+<p><strong>Outcome classification:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Condition</th><th>Outcome</th></tr></thead><tbody>
+<tr><td>Exit code 0</td><td><code>Passed</code></td></tr>
+<tr><td><code>panicked at</code> in stderr/stdout</td><td><code>Panic</code></td></tr>
+<tr><td>Deadline exceeded</td><td><code>Timeout</code></td></tr>
+<tr><td>Other non-zero exit</td><td><code>Failed</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="executionconfig"><a class="header" href="#executionconfig"><code>ExecutionConfig</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct ExecutionConfig {
+    pub concurrency: usize,
+    pub timeout: Duration,
+    pub retries: u32,
+    pub retry_delay: Duration,
+}
+<span class="boring">}</span></code></pre></pre>
+<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Default</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>concurrency</code></td><td>—</td><td>Maximum parallel test binary invocations</td></tr>
+<tr><td><code>timeout</code></td><td>300s</td><td>Per-test execution timeout</td></tr>
+<tr><td><code>retries</code></td><td>0</td><td>Number of retry attempts on failure</td></tr>
+<tr><td><code>retry_delay</code></td><td>100ms</td><td>Delay between retry attempts</td></tr>
+</tbody></table>
+</div>
+<h3 id="testresult"><a class="header" href="#testresult"><code>TestResult</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestResult {
+    pub test_case: TestCase,
+    pub outcome: TestOutcome,
+    pub duration: Duration,
+    pub stdout: String,
+    pub stderr: String,
+    pub attempt: u32,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="test-case-types"><a class="header" href="#test-case-types">Test Case Types</a></h2>
+<h3 id="testcase"><a class="header" href="#testcase"><code>TestCase</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestCase {
+    pub name: TestName,
+    pub binary_path: PathBuf,
+    pub binary_name: String,
+    pub package_name: String,
+    pub binary_kind: BinaryKind,
+    pub kind: TestKind,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="testkind"><a class="header" href="#testkind"><code>TestKind</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum TestKind {
+    Test,
+    Benchmark,
+}
+<span class="boring">}</span></code></pre></pre>
+<h3 id="binarykind"><a class="header" href="#binarykind"><code>BinaryKind</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum BinaryKind {
+    Lib,
+    Bin,
+    Test,
+    Example,
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Derived from Cargo metadata target kinds.</p>
+<h3 id="testbinary"><a class="header" href="#testbinary"><code>TestBinary</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct TestBinary {
+    pub path: PathBuf,
+    pub package_name: String,
+    pub binary_name: String,
+    pub kind: BinaryKind,
+}
+<span class="boring">}</span></code></pre></pre>
+<h2 id="high-level-runner"><a class="header" href="#high-level-runner">High-Level Runner</a></h2>
+<h3 id="nativerunner"><a class="header" href="#nativerunner"><code>NativeRunner</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct NativeRunner { /* private fields */ }
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Constructor:</strong></p>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn new(project_root: &amp;Path, config: ExecutionConfig) -&gt; Self
+<span class="boring">}</span></code></pre></pre>
+<p><strong>Methods:</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Method</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>discover_tests(&amp;self, filter: &amp;str)</code></td><td>Discovers test cases, optionally filtered by name substring</td></tr>
+<tr><td><code>run_test_sync(&amp;self, test_case: &amp;TestCase)</code></td><td>Runs a single test case once</td></tr>
+<tr><td><code>run_test_repeatedly(&amp;self, test_case, iterations, environment)</code></td><td>Runs a test multiple times, returning <code>Vec&lt;TestRun&gt;</code></td></tr>
+</tbody></table>
+</div>
+<h3 id="runnerbackend"><a class="header" href="#runnerbackend"><code>RunnerBackend</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub enum RunnerBackend {
+    Native(NativeRunner),
+}
+<span class="boring">}</span></code></pre></pre>
+<p>Extensible enum wrapping runner implementations. Currently supports native Cargo test execution.</p>
+<p><strong>Methods:</strong> <code>native()</code>, <code>execution_config()</code>, <code>discover_tests()</code>, <code>run_test_repeatedly()</code> — all delegate to the inner <code>NativeRunner</code>.</p>
+<h2 id="standalone-function"><a class="header" href="#standalone-function">Standalone Function</a></h2>
+<h3 id="execute_iterations"><a class="header" href="#execute_iterations"><code>execute_iterations</code></a></h3>
+<pre><pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub fn execute_iterations(
+    test_case: &amp;TestCase,
+    iterations: u32,
+    config: &amp;ExecutionConfig,
+    environment: &amp;TestEnvironment,
+) -&gt; Result&lt;Vec&lt;TestRun&gt;, NinetyNineError&gt;
+<span class="boring">}</span></code></pre></pre>
+<p>Convenience function that runs a test for N iterations and converts results to <code>TestRun</code> records. Used by the main command handler.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../api/storage.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../api/config.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../api/storage.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../api/config.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
