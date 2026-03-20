@@ -229,6 +229,7 @@ async fn execute_test_suite(
         .progress_chars("##-"),
     );
     pb.set_message("0 flaky, 0 failed");
+    pb.enable_steady_tick(Duration::from_millis(100));
 
     let mut join_set = tokio::task::JoinSet::new();
     for test_case in tests {
