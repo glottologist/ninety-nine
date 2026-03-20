@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flaky Test Dashboard — cargo ninety-nine</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text-dim: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149; --orange: #db6d28;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; padding: 24px; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  h2 { font-size: 18px; margin: 24px 0 12px; color: var(--accent); }
+  .subtitle { color: var(--text-dim); margin-bottom: 24px; }
+  .controls { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; flex-wrap: wrap; }
+  select { background: var(--surface); color: var(--text); border: 1px solid var(--border); padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .card .value { font-size: 32px; font-weight: 600; }
+  .card .label { color: var(--text-dim); font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 8px; overflow: hidden; }
+  th { text-align: left; padding: 10px 14px; background: var(--border); font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  td { padding: 10px 14px; border-top: 1px solid var(--border); font-size: 14px; }
+  tr:hover td { background: rgba(88,166,255,0.05); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .badge-stable { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-occasional { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-moderate { background: rgba(219,109,40,0.15); color: var(--orange); }
+  .badge-frequent { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-critical { background: var(--red); color: white; }
+  .bar-container { width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .loading { text-align: center; padding: 48px; color: var(--text-dim); }
+  .error { text-align: center; padding: 48px; color: var(--red); }
+  .chart-container { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 24px; }
+  .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+  .chart-bar { flex: 1; min-width: 4px; border-radius: 2px 2px 0 0; cursor: pointer; position: relative; }
+  .chart-bar:hover::after { content: attr(data-tooltip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: var(--surface); border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 1; }
+  footer { margin-top: 48px; text-align: center; color: var(--text-dim); font-size: 13px; }
+  a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<h1>Flaky Test Dashboard</h1>
+<p class="subtitle">Powered by <a href="https://github.com/glottologist/ninety-nine">cargo ninety-nine</a></p>
+
+<div class="controls">
+  <label for="branch-select">Branch:</label>
+  <select id="branch-select"><option>loading...</option></select>
+  <span id="last-updated" style="color: var(--text-dim); font-size: 13px;"></span>
+</div>
+
+<div id="content" class="loading">Loading data...</div>
+
+<footer>
+  cargo ninety-nine &mdash; Bayesian flaky test detection
+</footer>
+
+<script>
+const BASE_URL = window.location.href.replace(/\/[^/]*$/, '');
+
+async function fetchJSON(url) {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
+  return resp.json();
+}
+
+function categoryFor(score) {
+  if (score < 0.01) return 'stable';
+  if (score < 0.05) return 'occasional';
+  if (score < 0.15) return 'moderate';
+  if (score < 0.30) return 'frequent';
+  return 'critical';
+}
+
+function renderDashboard(scores) {
+  const content = document.getElementById('content');
+  const total = scores.length;
+  const flaky = scores.filter(s => s.probability_flaky >= 0.01 && s.confidence >= 0.95).length;
+  const stable = total - flaky;
+  const avgFlakiness = total > 0 ? scores.reduce((a, s) => a + s.probability_flaky, 0) / total : 0;
+
+  let html = '';
+
+  // Summary cards
+  html += '<div class="cards">';
+  html += `<div class="card"><div class="value">${total}</div><div class="label">Total Tests</div></div>`;
+  html += `<div class="card"><div class="value" style="color:var(--green)">${stable}</div><div class="label">Stable</div></div>`;
+  html += `<div class="card"><div class="value" style="color:${flaky > 0 ? 'var(--red)' : 'var(--green)'}">${flaky}</div><div class="label">Flaky</div></div>`;
+  html += `<div class="card"><div class="value">${(avgFlakiness * 100).toFixed(1)}%</div><div class="label">Avg Flakiness</div></div>`;
+  html += '</div>';
+
+  // Flakiness distribution chart
+  if (scores.length > 0) {
+    const sorted = [...scores].sort((a, b) => b.probability_flaky - a.probability_flaky);
+    const maxProb = Math.max(...sorted.map(s => s.probability_flaky), 0.01);
+    html += '<h2>Flakiness Distribution</h2>';
+    html += '<div class="chart-container"><div class="chart-bars">';
+    for (const s of sorted) {
+      const pct = Math.max((s.probability_flaky / maxProb) * 100, 1);
+      const cat = categoryFor(s.probability_flaky);
+      const colors = { stable: 'var(--green)', occasional: 'var(--yellow)', moderate: 'var(--orange)', frequent: 'var(--red)', critical: 'var(--red)' };
+      const shortName = s.test_name.length > 30 ? '...' + s.test_name.slice(-27) : s.test_name;
+      html += `<div class="chart-bar" style="height:${pct}%;background:${colors[cat]}" data-tooltip="${shortName}: ${(s.probability_flaky*100).toFixed(1)}%"></div>`;
+    }
+    html += '</div></div>';
+  }
+
+  // Scores table
+  html += '<h2>Test Results</h2>';
+  html += '<table><thead><tr><th>Test</th><th>Runs</th><th>Pass Rate</th><th>P(flaky)</th><th>Category</th><th>Confidence</th></tr></thead><tbody>';
+
+  const sorted = [...scores].sort((a, b) => b.probability_flaky - a.probability_flaky);
+  for (const s of sorted) {
+    const cat = categoryFor(s.probability_flaky);
+    const passBar = `<div class="bar-container"><div class="bar-fill" style="width:${s.pass_rate*100}%;background:var(--green)"></div></div>`;
+    html += '<tr>';
+    html += `<td title="${s.test_name}" style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.test_name}</td>`;
+    html += `<td>${s.total_runs}</td>`;
+    html += `<td>${(s.pass_rate * 100).toFixed(1)}% ${passBar}</td>`;
+    html += `<td>${(s.probability_flaky * 100).toFixed(1)}%</td>`;
+    html += `<td><span class="badge badge-${cat}">${cat}</span></td>`;
+    html += `<td>${(s.confidence * 100).toFixed(1)}%</td>`;
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  content.innerHTML = html;
+  content.className = '';
+}
+
+async function loadBranch(branch) {
+  const content = document.getElementById('content');
+  content.className = 'loading';
+  content.textContent = 'Loading data...';
+
+  try {
+    const scores = await fetchJSON(`${BASE_URL}/${branch}/scores.json`);
+    renderDashboard(scores);
+    document.getElementById('last-updated').textContent = `${scores.length} tests tracked`;
+  } catch (e) {
+    content.className = 'error';
+    content.textContent = `Failed to load data for branch "${branch}": ${e.message}`;
+  }
+}
+
+async function init() {
+  const select = document.getElementById('branch-select');
+
+  try {
+    const data = await fetchJSON(`${BASE_URL}/branches.json`);
+    select.innerHTML = '';
+    for (const branch of data.branches) {
+      const opt = document.createElement('option');
+      opt.value = branch;
+      opt.textContent = branch;
+      if (branch === 'main' || branch === 'master') opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener('change', () => loadBranch(select.value));
+    loadBranch(select.value);
+  } catch (e) {
+    // No branches.json yet, try loading main directly
+    select.innerHTML = '<option value="main">main</option>';
+    loadBranch('main');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
