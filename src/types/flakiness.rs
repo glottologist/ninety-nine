@@ -26,6 +26,22 @@ pub struct BayesianParams {
     pub credible_interval_upper: f64,
 }
 
+impl FlakinessScore {
+    /// Returns the score used for display and categorisation.
+    ///
+    /// When confidence is below the threshold, the Bayesian posterior is
+    /// dominated by the prior and misleading. Fall back to the observed
+    /// fail rate instead.
+    #[must_use]
+    pub fn effective_score(&self, confidence_threshold: f64) -> f64 {
+        if self.confidence >= confidence_threshold {
+            self.probability_flaky
+        } else {
+            self.fail_rate
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum FlakinessCategory {
     Stable,

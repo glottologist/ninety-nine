@@ -16,9 +16,13 @@ pub enum OutputFormat {
     Json,
 }
 
-pub fn print_flakiness_report(scores: &[FlakinessScore], format: OutputFormat) {
+pub fn print_flakiness_report(
+    scores: &[FlakinessScore],
+    format: OutputFormat,
+    confidence_threshold: f64,
+) {
     match format {
-        OutputFormat::Console => print_console_report(scores),
+        OutputFormat::Console => print_console_report(scores, confidence_threshold),
         OutputFormat::Json => print_json_report(scores),
     }
 }
@@ -107,7 +111,7 @@ pub fn print_duration_regression_summary(count: usize) {
     }
 }
 
-fn print_console_report(scores: &[FlakinessScore]) {
+fn print_console_report(scores: &[FlakinessScore], confidence_threshold: f64) {
     if scores.is_empty() {
         println!("{}", "No test results to display.".dimmed());
         return;
@@ -126,7 +130,8 @@ fn print_console_report(scores: &[FlakinessScore]) {
     println!("{}", "-".repeat(92));
 
     for score in scores {
-        let category = FlakinessCategory::from_score(score.probability_flaky);
+        let effective = score.effective_score(confidence_threshold);
+        let category = FlakinessCategory::from_score(effective);
         let category_str = format_category(category);
 
         println!(
@@ -134,7 +139,7 @@ fn print_console_report(scores: &[FlakinessScore]) {
             truncate_name(&score.test_name, 50),
             score.total_runs,
             score.pass_rate * 100.0,
-            score.probability_flaky * 100.0,
+            effective * 100.0,
             category_str,
         );
     }

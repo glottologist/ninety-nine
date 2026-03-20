@@ -153,16 +153,21 @@ fn print_results(
     detector: &BayesianDetector,
     output_format: OutputFormat,
 ) {
+    let threshold = config.detection.confidence_threshold;
     results.scores.sort_by(|a, b| {
-        b.probability_flaky
-            .partial_cmp(&a.probability_flaky)
+        b.effective_score(threshold)
+            .partial_cmp(&a.effective_score(threshold))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     if config.reporting.console.summary_only {
         print_summary(&results.scores, detector);
     } else {
-        print_flakiness_report(&results.scores, output_format);
+        print_flakiness_report(
+            &results.scores,
+            output_format,
+            config.detection.confidence_threshold,
+        );
         print_analysis(&results.all_runs, config);
     }
 }
@@ -492,7 +497,11 @@ async fn run_status(
         print_test_detail(&score, &runs, trend.as_ref(), &patterns, output_format);
     } else {
         let scores = storage.get_all_scores().await?;
-        print_flakiness_report(&scores, output_format);
+        print_flakiness_report(
+            &scores,
+            output_format,
+            config.detection.confidence_threshold,
+        );
     }
     Ok(())
 }
