@@ -45,37 +45,33 @@ pub fn print_run_header(test_count: usize, iterations: u32) {
     );
 }
 
-pub fn print_test_result_line(test_name: &str, passed: u32, total: u32, duration: Duration) {
+pub fn format_test_result_line(
+    test_name: &str,
+    passed: u32,
+    total: u32,
+    duration: Duration,
+    completed: usize,
+    test_count: usize,
+) -> String {
     let secs = duration.as_secs_f64();
     let name = truncate_name(test_name, 60);
+    let counter = format!("[{completed}/{test_count}]").dimmed();
 
     if passed == total {
-        println!(
-            " {} [{}/{}] [{:.2}s] {}",
+        format!(
+            "{counter}  {} [{passed}/{total}] [{secs:.2}s] {name}",
             "PASS".green().bold(),
-            passed,
-            total,
-            secs,
-            name,
-        );
+        )
     } else if passed == 0 {
-        println!(
-            " {} [{}/{}] [{:.2}s] {}",
+        format!(
+            "{counter}  {} [{passed}/{total}] [{secs:.2}s] {name}",
             "FAIL".red().bold(),
-            passed,
-            total,
-            secs,
-            name,
-        );
+        )
     } else {
-        println!(
-            "{} [{}/{}] [{:.2}s] {}",
+        format!(
+            "{counter} {} [{passed}/{total}] [{secs:.2}s] {name}",
             "FLAKY".yellow().bold(),
-            passed,
-            total,
-            secs,
-            name,
-        );
+        )
     }
 }
 

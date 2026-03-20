@@ -1,6 +1,6 @@
 {
-    "name":"Ninety Nine",
-    "description":"Ninety Nine flaky test tracker and finder",
+  "name": "Ninety Nine",
+  "description": "Ninety Nine flaky test tracker and finder",
   "env": {
     "RUST_BACKTRACE": "1",
     "RUST_LOG": "debug"
@@ -9,8 +9,6 @@
     "openssl",
     "libiconv",
     "pkg-config",
-    "rustc@latest",
-    "cargo@latest",
     "bacon",
     "cargo-nextest",
     "cargo-udeps",
@@ -30,7 +28,7 @@
     "scripts": {
       "build": "cargo build",
       "test": "cargo nextest run --all",
-      "lint": "cargo clippy --all-targets --all-feature --locked -- -D warnings",
+      "lint": "cargo clippy --all-targets -- -D warnings",
       "fmt": "cargo fmt",
       "check": "cargo check",
       "release": "cargo build --release",
@@ -40,11 +38,9 @@
       "snap-test": "cargo insta test"
     }
   },
-    "languages": {
+  "languages": {
     "rust": {
-      "version": "nightly",
-      "targets": ["wasm32-unknown-unknown"]
+      "version": "latest"
     }
   }
-
 }

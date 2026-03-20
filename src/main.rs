@@ -11,9 +11,9 @@ use cargo_ninety_nine::analysis::trend::calculate_trend;
 use cargo_ninety_nine::ci::{generate_github_actions, generate_gitlab_ci};
 use cargo_ninety_nine::cli::export::{export_csv, export_html, export_json, export_junit};
 use cargo_ninety_nine::cli::output::{
-    print_duration_regression_summary, print_duration_warning, print_flakiness_report,
-    print_quarantine_list, print_run_header, print_run_summary, print_session_report,
-    print_summary, print_test_detail, print_test_result_line,
+    format_test_result_line, print_duration_regression_summary, print_duration_warning,
+    print_flakiness_report, print_quarantine_list, print_run_header, print_run_summary,
+    print_session_report, print_summary, print_test_detail,
 };
 use cargo_ninety_nine::cli::{
     CargoSubcommand, CiCommand, CiTarget, Cli, Commands, ExportFormat, OutputFormat,
@@ -216,10 +216,21 @@ async fn execute_test_suite(
     let config = Arc::new(backend.execution_config().clone()); // clone: shared across spawn_blocking tasks
     let semaphore = Arc::new(tokio::sync::Semaphore::new(config.concurrency));
     let iterations = opts.iterations;
+    let total = tests.len();
 
-    print_run_header(tests.len(), iterations);
+    print_run_header(total, iterations);
 
-    let mut handles = Vec::with_capacity(tests.len());
+    let pb = indicatif::ProgressBar::new(u64::try_from(total).unwrap_or(u64::MAX));
+    pb.set_style(
+        indicatif::ProgressStyle::with_template(
+            "{bar:40.cyan/blue} {pos}/{len} | {msg} | {elapsed_precise}",
+        )
+        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
+        .progress_chars("##-"),
+    );
+    pb.set_message("0 flaky, 0 failed");
+
+    let mut join_set = tokio::task::JoinSet::new();
     for test_case in tests {
         let permit = Arc::clone(&semaphore).acquire_owned().await.map_err(|e| {
             NinetyNineError::RunnerExecution {
@@ -230,30 +241,30 @@ async fn execute_test_suite(
         let cfg = Arc::clone(&config);
         let env = Arc::clone(&environment);
 
-        let handle = tokio::task::spawn_blocking(move || {
+        join_set.spawn_blocking(move || {
             let _permit = permit;
             let start = Instant::now();
             let runs = execute_iterations(&tc, iterations, &cfg, &env)?;
             let elapsed = start.elapsed();
             Ok::<_, NinetyNineError>((tc, runs, elapsed))
         });
-        handles.push(handle);
     }
 
-    let mut scores = Vec::with_capacity(tests.len());
+    let mut scores = Vec::with_capacity(total);
     let mut all_runs = Vec::new();
     let mut pass_count = 0usize;
     let mut flaky_count = 0usize;
     let mut fail_count = 0usize;
+    let mut completed = 0usize;
     let mut duration_regressions = Vec::new();
 
-    for handle in handles {
+    while let Some(result) = join_set.join_next().await {
         let (test_case, runs, elapsed) =
-            handle
-                .await
-                .map_err(|e| NinetyNineError::RunnerExecution {
-                    message: format!("task join error: {e}"),
-                })??;
+            result.map_err(|e| NinetyNineError::RunnerExecution {
+                message: format!("task join error: {e}"),
+            })??;
+
+        completed += 1;
 
         let passed = u32::try_from(
             runs.iter()
@@ -262,8 +273,6 @@ async fn execute_test_suite(
         )
         .unwrap_or(u32::MAX);
 
-        print_test_result_line(&test_case.name, passed, iterations, elapsed);
-
         if passed == iterations {
             pass_count += 1;
         } else if passed == 0 {
@@ -271,6 +280,18 @@ async fn execute_test_suite(
         } else {
             flaky_count += 1;
         }
+
+        let line = format_test_result_line(
+            &test_case.name,
+            passed,
+            iterations,
+            elapsed,
+            completed,
+            total,
+        );
+        pb.println(line);
+        pb.set_position(u64::try_from(completed).unwrap_or(u64::MAX));
+        pb.set_message(format!("{flaky_count} flaky, {fail_count} failed"));
 
         for run in &runs {
             storage.store_test_run(run, session.id()).await?;
@@ -284,6 +305,8 @@ async fn execute_test_suite(
         all_runs.extend(runs);
         scores.push(score);
     }
+
+    pb.finish_and_clear();
 
     Ok(SuiteResults {
         scores,
