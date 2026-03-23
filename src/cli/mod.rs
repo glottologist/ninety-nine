@@ -38,6 +38,10 @@ pub struct NinetyNineArgs {
 
     #[arg(long, short, global = true)]
     pub verbose: bool,
+
+    /// Disable interactive TUI mode (for CI/scripting)
+    #[arg(long, short = 'N', global = true)]
+    pub non_interactive: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

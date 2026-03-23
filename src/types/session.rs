@@ -16,10 +16,10 @@ pub struct RunSession {
     pub branch: String,
 }
 
-/// A session that is actively running. Created via `start()`, consumed by
-/// `into_run_session()` to produce a storable `RunSession`.
-/// Once converted or dropped, it cannot be reused — preventing double-finish
-/// at the orchestration layer.
+/// A session that is actively running.
+///
+/// Created via `start()`, consumed by `into_run_session()` to produce a
+/// storable `RunSession`. Once converted or dropped, it cannot be reused.
 #[derive(Debug)]
 pub struct ActiveSession {
     id: Uuid,

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 use uuid::Uuid;
 
+#[must_use]
 pub fn test_environment() -> TestEnvironment {
     TestEnvironment {
         os: "linux".to_string(),
@@ -18,6 +19,7 @@ pub fn test_environment() -> TestEnvironment {
     }
 }
 
+#[must_use]
 pub fn test_environment_ci(is_ci: bool) -> TestEnvironment {
     TestEnvironment {
         is_ci,
@@ -30,6 +32,7 @@ pub fn test_environment_ci(is_ci: bool) -> TestEnvironment {
     }
 }
 
+#[must_use]
 pub fn test_run(name: &str, outcome: TestOutcome) -> TestRun {
     TestRun {
         id: Uuid::new_v4(),
@@ -47,6 +50,7 @@ pub fn test_run(name: &str, outcome: TestOutcome) -> TestRun {
     }
 }
 
+#[must_use]
 pub fn test_run_with_duration(name: &str, duration_ms: u64) -> TestRun {
     TestRun {
         duration: Duration::from_millis(duration_ms),
@@ -55,6 +59,7 @@ pub fn test_run_with_duration(name: &str, duration_ms: u64) -> TestRun {
     }
 }
 
+#[must_use]
 pub fn test_run_at_hour(name: &str, outcome: TestOutcome, hour: u32) -> TestRun {
     TestRun {
         timestamp: Utc.with_ymd_and_hms(2026, 3, 5, hour, 0, 0).unwrap(),
@@ -63,6 +68,7 @@ pub fn test_run_at_hour(name: &str, outcome: TestOutcome, hour: u32) -> TestRun 
     }
 }
 
+#[must_use]
 pub fn test_run_in_env(name: &str, outcome: TestOutcome, is_ci: bool) -> TestRun {
     TestRun {
         environment: test_environment_ci(is_ci),
@@ -70,6 +76,7 @@ pub fn test_run_in_env(name: &str, outcome: TestOutcome, is_ci: bool) -> TestRun
     }
 }
 
+#[must_use]
 pub fn test_run_for_storage(name: &str, outcome: TestOutcome) -> TestRun {
     TestRun {
         test_path: PathBuf::from("/tmp/test-binary"),
@@ -80,6 +87,7 @@ pub fn test_run_for_storage(name: &str, outcome: TestOutcome) -> TestRun {
     }
 }
 
+#[must_use]
 pub fn test_runs_by_outcome(passes: u32, failures: u32) -> Vec<TestRun> {
     let total = usize::try_from(passes + failures).unwrap_or(0);
     let mut runs = Vec::with_capacity(total);
@@ -92,6 +100,7 @@ pub fn test_runs_by_outcome(passes: u32, failures: u32) -> Vec<TestRun> {
     runs
 }
 
+#[must_use]
 pub fn test_score(name: &str, probability: f64) -> FlakinessScore {
     FlakinessScore {
         test_name: TestName::from(name),
@@ -113,6 +122,7 @@ pub fn test_score(name: &str, probability: f64) -> FlakinessScore {
     }
 }
 
+#[must_use]
 pub fn test_session(commit_hash: &str, branch: &str) -> RunSession {
     ActiveSession::start(commit_hash, branch).to_run_session()
 }

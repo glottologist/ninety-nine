@@ -1,17 +1,12 @@
-use std::path::PathBuf;
-use std::str::FromStr;
-
 use chrono::{DateTime, Utc};
 use deadpool_postgres::{Config as PgConfig, Pool, Runtime};
 use tokio_postgres::NoTls;
 use uuid::Uuid;
 
 use crate::error::NinetyNineError;
-use crate::storage::{Storage, duration_to_ms, ms_to_duration};
-use crate::types::{
-    BayesianParams, FlakinessScore, QuarantineEntry, RunSession, TestEnvironment, TestName,
-    TestOutcome, TestRun,
-};
+use crate::storage::mapping::{RawScoreRow, RawTestRunRow};
+use crate::storage::{Storage, duration_to_ms};
+use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestName, TestRun};
 
 pub struct PostgresStorage {
     pool: Pool,
@@ -323,7 +318,7 @@ impl Storage for PostgresStorage {
 
         let mut runs = Vec::with_capacity(rows.len());
         for row in &rows {
-            runs.push(row_to_test_run(row));
+            runs.push(extract_test_run(row).into_test_run());
         }
         Ok(runs)
     }
@@ -377,7 +372,7 @@ impl Storage for PostgresStorage {
 
         let mut scores = Vec::with_capacity(rows.len());
         for row in &rows {
-            scores.push(row_to_score(row));
+            scores.push(extract_score(row).into_score());
         }
         Ok(scores)
     }
@@ -395,7 +390,7 @@ impl Storage for PostgresStorage {
             )
             .await?;
 
-        Ok(rows.first().map(row_to_score))
+        Ok(rows.first().map(|row| extract_score(row).into_score()))
     }
 
     async fn quarantine_test(
@@ -497,80 +492,43 @@ impl Storage for PostgresStorage {
     }
 }
 
-fn row_to_test_run(row: &tokio_postgres::Row) -> TestRun {
-    let id_str: String = row.get(0);
-    let test_name = TestName::from(row.get::<_, String>(1));
-    let test_path_str: String = row.get(2);
-    let outcome_str: String = row.get(3);
-    let duration_ms: i64 = row.get(4);
-    let timestamp_str: String = row.get(5);
-    let commit_hash: String = row.get(6);
-    let branch: String = row.get(7);
-    let retry_count: i32 = row.get(8);
-    let error_message: Option<String> = row.get(9);
-    let stack_trace: Option<String> = row.get(10);
-    let env_os: String = row.get(11);
-    let env_rust_version: String = row.get(12);
-    let env_cpu_count: i32 = row.get(13);
-    let env_memory_gb: f64 = row.get(14);
-    let env_is_ci: bool = row.get(15);
-    let env_ci_provider: Option<String> = row.get(16);
-
-    TestRun {
-        id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
-        test_name,
-        test_path: PathBuf::from(test_path_str),
-        outcome: TestOutcome::from_str(&outcome_str).unwrap_or(TestOutcome::Failed),
-        duration: ms_to_duration(duration_ms),
-        timestamp: parse_timestamp(&timestamp_str),
-        commit_hash,
-        branch,
-        environment: TestEnvironment {
-            os: env_os,
-            rust_version: env_rust_version,
-            cpu_count: u32::try_from(env_cpu_count).unwrap_or(0),
-            memory_gb: env_memory_gb,
-            is_ci: env_is_ci,
-            ci_provider: env_ci_provider,
-        },
-        retry_count: u32::try_from(retry_count).unwrap_or(0),
-        error_message,
-        stack_trace,
+fn extract_test_run(row: &tokio_postgres::Row) -> RawTestRunRow {
+    RawTestRunRow {
+        id: row.get(0),
+        test_name: row.get(1),
+        test_path: row.get(2),
+        outcome: row.get(3),
+        duration_ms: row.get(4),
+        timestamp: row.get(5),
+        commit_hash: row.get(6),
+        branch: row.get(7),
+        retry_count: u32::try_from(row.get::<_, i32>(8)).unwrap_or(0),
+        error_message: row.get(9),
+        stack_trace: row.get(10),
+        env_os: row.get(11),
+        env_rust_version: row.get(12),
+        env_cpu_count: u32::try_from(row.get::<_, i32>(13)).unwrap_or(0),
+        env_memory_gb: row.get(14),
+        env_is_ci: row.get(15),
+        env_ci_provider: row.get(16),
     }
 }
 
-fn row_to_score(row: &tokio_postgres::Row) -> FlakinessScore {
-    let test_name = TestName::from(row.get::<_, String>(0));
-    let probability_flaky: f64 = row.get(1);
-    let confidence: f64 = row.get(2);
-    let pass_rate: f64 = row.get(3);
-    let fail_rate: f64 = row.get(4);
-    let total_runs: i64 = row.get(5);
-    let consecutive_failures: i32 = row.get(6);
-    let last_updated_str: String = row.get(7);
-    let alpha: f64 = row.get(8);
-    let beta: f64 = row.get(9);
-    let posterior_mean: f64 = row.get(10);
-    let posterior_variance: f64 = row.get(11);
-    let ci_lower: f64 = row.get(12);
-    let ci_upper: f64 = row.get(13);
-
-    FlakinessScore {
-        test_name,
-        probability_flaky,
-        confidence,
-        pass_rate,
-        fail_rate,
-        total_runs: u64::try_from(total_runs).unwrap_or(0),
-        consecutive_failures: u32::try_from(consecutive_failures).unwrap_or(0),
-        last_updated: parse_timestamp(&last_updated_str),
-        bayesian_params: BayesianParams {
-            alpha,
-            beta,
-            posterior_mean,
-            posterior_variance,
-            credible_interval_lower: ci_lower,
-            credible_interval_upper: ci_upper,
-        },
+fn extract_score(row: &tokio_postgres::Row) -> RawScoreRow {
+    RawScoreRow {
+        test_name: row.get(0),
+        probability_flaky: row.get(1),
+        confidence: row.get(2),
+        pass_rate: row.get(3),
+        fail_rate: row.get(4),
+        total_runs: u64::try_from(row.get::<_, i64>(5)).unwrap_or(0),
+        consecutive_failures: u32::try_from(row.get::<_, i32>(6)).unwrap_or(0),
+        last_updated: row.get(7),
+        alpha: row.get(8),
+        beta: row.get(9),
+        posterior_mean: row.get(10),
+        posterior_variance: row.get(11),
+        ci_lower: row.get(12),
+        ci_upper: row.get(13),
     }
 }

@@ -1,6 +1,4 @@
 use std::path::Path;
-use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
@@ -8,11 +6,9 @@ use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 use crate::error::NinetyNineError;
-use crate::storage::{Storage, duration_to_ms, ms_to_duration, schema};
-use crate::types::{
-    BayesianParams, FlakinessScore, QuarantineEntry, RunSession, TestEnvironment, TestName,
-    TestOutcome, TestRun,
-};
+use crate::storage::mapping::{RawScoreRow, RawTestRunRow};
+use crate::storage::{Storage, duration_to_ms, schema};
+use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestName, TestRun};
 
 pub struct SqliteStorage {
     conn: Mutex<Connection>,
@@ -198,12 +194,13 @@ impl Storage for SqliteStorage {
                  ORDER BY timestamp DESC LIMIT ?2",
             )?;
 
-            let rows =
-                stmt.query_map(params![test_name, limit], |row| Ok(read_test_run_row(row)))?;
+            let rows = stmt.query_map(params![test_name, limit], |row| {
+                Ok(extract_test_run_row(row))
+            })?;
 
             let mut runs = Vec::new();
             for row_result in rows {
-                runs.push(row_result??);
+                runs.push(row_result??.into_test_run());
             }
             runs
         };
@@ -257,11 +254,11 @@ impl Storage for SqliteStorage {
                  FROM flakiness_scores ORDER BY probability_flaky DESC",
             )?;
 
-            let rows = stmt.query_map([], |row| Ok(read_score_row(row)))?;
+            let rows = stmt.query_map([], |row| Ok(extract_score_row(row)))?;
 
             let mut scores = Vec::new();
             for row_result in rows {
-                scores.push(row_result??);
+                scores.push(row_result??.into_score());
             }
             scores
         };
@@ -278,10 +275,10 @@ impl Storage for SqliteStorage {
                  FROM flakiness_scores WHERE test_name = ?1",
             )?;
 
-            let mut rows = stmt.query_map(params![test_name], |row| Ok(read_score_row(row)))?;
+            let mut rows = stmt.query_map(params![test_name], |row| Ok(extract_score_row(row)))?;
 
             match rows.next() {
-                Some(row_result) => Some(row_result??),
+                Some(row_result) => Some(row_result??.into_score()),
                 None => None,
             }
         };
@@ -377,81 +374,44 @@ impl Storage for SqliteStorage {
     }
 }
 
-fn read_test_run_row(row: &rusqlite::Row<'_>) -> Result<TestRun, NinetyNineError> {
-    let id_str: String = row.get(0)?;
-    let test_name: TestName = TestName::from(row.get::<_, String>(1)?);
-    let test_path_str: String = row.get(2)?;
-    let outcome_str: String = row.get(3)?;
-    let duration_ms: i64 = row.get(4)?;
-    let timestamp_str: String = row.get(5)?;
-    let commit_hash: String = row.get(6)?;
-    let branch: String = row.get(7)?;
-    let retry_count: u32 = row.get(8)?;
-    let error_message: Option<String> = row.get(9)?;
-    let stack_trace: Option<String> = row.get(10)?;
-    let env_os: String = row.get(11)?;
-    let env_rust_version: String = row.get(12)?;
-    let env_cpu_count: u32 = row.get(13)?;
-    let env_memory_gb: f64 = row.get(14)?;
-    let env_is_ci: bool = row.get(15)?;
-    let env_ci_provider: Option<String> = row.get(16)?;
-
-    Ok(TestRun {
-        id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
-        test_name,
-        test_path: PathBuf::from(test_path_str),
-        outcome: TestOutcome::from_str(&outcome_str).unwrap_or(TestOutcome::Failed),
-        duration: ms_to_duration(duration_ms),
-        timestamp: parse_timestamp(&timestamp_str),
-        commit_hash,
-        branch,
-        environment: TestEnvironment {
-            os: env_os,
-            rust_version: env_rust_version,
-            cpu_count: env_cpu_count,
-            memory_gb: env_memory_gb,
-            is_ci: env_is_ci,
-            ci_provider: env_ci_provider,
-        },
-        retry_count,
-        error_message,
-        stack_trace,
+fn extract_test_run_row(row: &rusqlite::Row<'_>) -> Result<RawTestRunRow, NinetyNineError> {
+    Ok(RawTestRunRow {
+        id: row.get(0)?,
+        test_name: row.get(1)?,
+        test_path: row.get(2)?,
+        outcome: row.get(3)?,
+        duration_ms: row.get(4)?,
+        timestamp: row.get(5)?,
+        commit_hash: row.get(6)?,
+        branch: row.get(7)?,
+        retry_count: row.get(8)?,
+        error_message: row.get(9)?,
+        stack_trace: row.get(10)?,
+        env_os: row.get(11)?,
+        env_rust_version: row.get(12)?,
+        env_cpu_count: row.get(13)?,
+        env_memory_gb: row.get(14)?,
+        env_is_ci: row.get(15)?,
+        env_ci_provider: row.get(16)?,
     })
 }
 
-fn read_score_row(row: &rusqlite::Row<'_>) -> Result<FlakinessScore, NinetyNineError> {
-    let test_name: TestName = TestName::from(row.get::<_, String>(0)?);
-    let probability_flaky: f64 = row.get(1)?;
-    let confidence: f64 = row.get(2)?;
-    let pass_rate: f64 = row.get(3)?;
-    let fail_rate: f64 = row.get(4)?;
-    let total_runs: u64 = row.get(5)?;
-    let consecutive_failures: u32 = row.get(6)?;
-    let last_updated_str: String = row.get(7)?;
-    let alpha: f64 = row.get(8)?;
-    let beta: f64 = row.get(9)?;
-    let posterior_mean: f64 = row.get(10)?;
-    let posterior_variance: f64 = row.get(11)?;
-    let ci_lower: f64 = row.get(12)?;
-    let ci_upper: f64 = row.get(13)?;
-
-    Ok(FlakinessScore {
-        test_name,
-        probability_flaky,
-        confidence,
-        pass_rate,
-        fail_rate,
-        total_runs,
-        consecutive_failures,
-        last_updated: parse_timestamp(&last_updated_str),
-        bayesian_params: BayesianParams {
-            alpha,
-            beta,
-            posterior_mean,
-            posterior_variance,
-            credible_interval_lower: ci_lower,
-            credible_interval_upper: ci_upper,
-        },
+fn extract_score_row(row: &rusqlite::Row<'_>) -> Result<RawScoreRow, NinetyNineError> {
+    Ok(RawScoreRow {
+        test_name: row.get(0)?,
+        probability_flaky: row.get(1)?,
+        confidence: row.get(2)?,
+        pass_rate: row.get(3)?,
+        fail_rate: row.get(4)?,
+        total_runs: row.get(5)?,
+        consecutive_failures: row.get(6)?,
+        last_updated: row.get(7)?,
+        alpha: row.get(8)?,
+        beta: row.get(9)?,
+        posterior_mean: row.get(10)?,
+        posterior_variance: row.get(11)?,
+        ci_lower: row.get(12)?,
+        ci_upper: row.get(13)?,
     })
 }
 
@@ -459,6 +419,7 @@ fn read_score_row(row: &rusqlite::Row<'_>) -> Result<FlakinessScore, NinetyNineE
 mod tests {
     use super::*;
     use crate::test_helpers::{test_run_for_storage, test_score, test_session};
+    use crate::types::TestOutcome;
     use proptest::prelude::*;
     use rstest::rstest;
     use std::time::Duration;

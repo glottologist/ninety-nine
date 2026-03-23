@@ -102,7 +102,7 @@ impl RunnerBackend {
     }
 
     #[must_use]
-    pub fn execution_config(&self) -> &ExecutionConfig {
+    pub const fn execution_config(&self) -> &ExecutionConfig {
         match self {
             Self::Native(r) => &r.execution_config,
         }

@@ -48,9 +48,4 @@ mod tests {
             "at least cargo should be available in dev environment"
         );
     }
-
-    #[test]
-    fn cargo_is_available_in_dev() {
-        assert!(is_cargo_available());
-    }
 }

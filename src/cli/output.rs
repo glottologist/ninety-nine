@@ -49,6 +49,7 @@ pub fn print_run_header(test_count: usize, iterations: u32) {
     );
 }
 
+#[must_use]
 pub fn format_test_result_line(
     test_name: &str,
     passed: u32,
@@ -90,14 +91,19 @@ pub fn print_run_summary(total: usize, passed: usize, flaky: usize, failed: usiz
     );
 }
 
-pub fn print_duration_warning(test_name: &str, current_ms: f64, mean_ms: f64, factor: f64) {
+pub fn print_duration_warning(test_name: &str, current_ms: f64, mean_ms: f64) {
+    let ratio = if mean_ms > f64::EPSILON {
+        current_ms / mean_ms
+    } else {
+        1.0
+    };
     println!(
-        "  {} {} — {:.0}ms (mean: {:.0}ms, {:.1}x slower)",
+        "  {} {} — {:.0}ms (mean: {:.0}ms, {:.1}x)",
         "SLOW".yellow().bold(),
         test_name,
         current_ms,
         mean_ms,
-        factor,
+        ratio,
     );
 }
 

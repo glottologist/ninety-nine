@@ -1,19 +1,16 @@
 use std::path::Path;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
-use cargo_ninety_nine::analysis::duration::{DurationRegression, detect_duration_regressions};
 use cargo_ninety_nine::analysis::pattern::detect_patterns;
 use cargo_ninety_nine::analysis::trend::calculate_trend;
 use cargo_ninety_nine::ci::{generate_github_actions, generate_gitlab_ci};
 use cargo_ninety_nine::cli::export::{export_csv, export_html, export_json, export_junit};
 use cargo_ninety_nine::cli::output::{
-    format_test_result_line, print_duration_regression_summary, print_duration_warning,
-    print_flakiness_report, print_quarantine_list, print_run_header, print_run_summary,
-    print_session_report, print_summary, print_test_detail,
+    print_duration_regression_summary, print_flakiness_report, print_quarantine_list,
+    print_run_summary, print_session_report, print_summary, print_test_detail,
 };
 use cargo_ninety_nine::cli::{
     CargoSubcommand, CiCommand, CiTarget, Cli, Commands, ExportFormat, OutputFormat,
@@ -22,31 +19,25 @@ use cargo_ninety_nine::cli::{
 use cargo_ninety_nine::config;
 use cargo_ninety_nine::config::model::Config;
 use cargo_ninety_nine::detector::BayesianDetector;
+use cargo_ninety_nine::env::detect_git_info;
 use cargo_ninety_nine::error::NinetyNineError;
 use cargo_ninety_nine::filter;
 use cargo_ninety_nine::filter::eval::{TestMetadata, eval};
+use cargo_ninety_nine::orchestrator::{
+    SuiteResults, auto_quarantine, execute_test_suite, finalize_session, print_analysis,
+};
 use cargo_ninety_nine::runner::executor::ExecutionConfig;
 use cargo_ninety_nine::runner::listing::TestCase;
-use cargo_ninety_nine::runner::{RunnerBackend, detect_available_runner, execute_iterations};
+use cargo_ninety_nine::runner::{RunnerBackend, detect_available_runner};
 use cargo_ninety_nine::storage::{Storage, StorageBackend, open_storage};
-use cargo_ninety_nine::types::{
-    ActiveSession, FlakinessScore, TestEnvironment, TestOutcome, TestRun,
-};
+use cargo_ninety_nine::types::ActiveSession;
 
 struct TestOpts<'a> {
     filter_expr: Option<&'a str>,
     iterations: u32,
     confidence: f64,
     output_format: OutputFormat,
-}
-
-struct SuiteResults {
-    scores: Vec<FlakinessScore>,
-    all_runs: Vec<TestRun>,
-    pass_count: usize,
-    flaky_count: usize,
-    fail_count: usize,
-    duration_regressions: Vec<DurationRegression>,
+    non_interactive: bool,
 }
 
 #[tokio::main]
@@ -64,7 +55,16 @@ async fn main() {
 
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
-    if let Err(e) = run(&args.project_dir, args.command, args.output).await {
+    let project_dir = args.project_dir.canonicalize().unwrap_or(args.project_dir);
+
+    if let Err(e) = run(
+        &project_dir,
+        args.command,
+        args.output,
+        args.non_interactive,
+    )
+    .await
+    {
         eprintln!("Error: {e}");
         std::process::exit(1);
     }
@@ -74,6 +74,7 @@ async fn run(
     project_dir: &Path,
     command: Commands,
     output_format: OutputFormat,
+    non_interactive: bool,
 ) -> Result<(), NinetyNineError> {
     let config = config::load_config(project_dir)?;
 
@@ -89,17 +90,32 @@ async fn run(
                 iterations: iterations.unwrap_or(config.detection.min_runs),
                 confidence: confidence.unwrap_or(config.detection.confidence_threshold),
                 output_format,
+                non_interactive,
             };
             run_test(project_dir, &config, &storage, &opts).await
         }
         Commands::Init { force } => run_init(project_dir, force),
         Commands::History { filter, limit } => {
             let storage = open_storage(&config).await?;
-            run_history(&storage, filter.as_deref(), limit, output_format).await
+            run_history(
+                &storage,
+                filter.as_deref(),
+                limit,
+                output_format,
+                non_interactive,
+            )
+            .await
         }
         Commands::Status { test_name } => {
             let storage = open_storage(&config).await?;
-            run_status(&storage, &config, test_name.as_deref(), output_format).await
+            run_status(
+                &storage,
+                &config,
+                test_name.as_deref(),
+                output_format,
+                non_interactive,
+            )
+            .await
         }
         Commands::Export { format, path } => {
             let storage = open_storage(&config).await?;
@@ -131,8 +147,15 @@ async fn run_test(
     storage.store_session(&session.to_run_session()).await?;
 
     let detector = BayesianDetector::new(opts.confidence);
-    let mut results =
-        execute_test_suite(&backend, storage, &tests, opts, &detector, &session).await?;
+    let mut results = execute_test_suite(
+        &backend,
+        storage,
+        &tests,
+        opts.iterations,
+        &detector,
+        &session,
+    )
+    .await?;
 
     print_run_summary(
         tests.len(),
@@ -143,8 +166,15 @@ async fn run_test(
     print_duration_regression_summary(results.duration_regressions.len());
 
     finalize_session(storage, session, &detector, &results.scores, config).await?;
-    print_results(&mut results, config, &detector, opts.output_format);
-    auto_quarantine(config, storage, &detector, &results.scores).await
+    auto_quarantine(config, storage, &detector, &results.scores).await?;
+
+    if opts.non_interactive {
+        print_results(&mut results, config, &detector, opts.output_format);
+    } else {
+        cargo_ninety_nine::tui::run_scores(results.scores, opts.confidence, storage, config)?;
+    }
+
+    Ok(())
 }
 
 fn print_results(
@@ -172,7 +202,6 @@ fn print_results(
     }
 }
 
-/// Discovers tests and applies filter expression, returning `None` if no tests remain.
 async fn discover_and_filter_tests(
     backend: &RunnerBackend,
     storage: &StorageBackend,
@@ -209,257 +238,12 @@ async fn discover_and_filter_tests(
     Ok(Some(tests))
 }
 
-async fn execute_test_suite(
-    backend: &RunnerBackend,
-    storage: &StorageBackend,
-    tests: &[TestCase],
-    opts: &TestOpts<'_>,
-    detector: &BayesianDetector,
-    session: &ActiveSession,
-) -> Result<SuiteResults, NinetyNineError> {
-    let environment = Arc::new(detect_environment());
-    let config = Arc::new(backend.execution_config().clone()); // clone: shared across spawn_blocking tasks
-    let semaphore = Arc::new(tokio::sync::Semaphore::new(config.concurrency));
-    let iterations = opts.iterations;
-    let total = tests.len();
-
-    print_run_header(total, iterations);
-
-    let pb = indicatif::ProgressBar::new(u64::try_from(total).unwrap_or(u64::MAX));
-    pb.set_style(
-        indicatif::ProgressStyle::with_template(
-            "{bar:40.cyan/blue} {pos}/{len} | {msg} | {elapsed_precise}",
-        )
-        .unwrap_or_else(|_| indicatif::ProgressStyle::default_bar())
-        .progress_chars("##-"),
-    );
-    pb.set_message("0 flaky, 0 failed");
-    pb.enable_steady_tick(Duration::from_millis(100));
-
-    let mut join_set = tokio::task::JoinSet::new();
-    for test_case in tests {
-        let sem = Arc::clone(&semaphore);
-        let tc = test_case.clone(); // clone: moved into spawned task
-        let cfg = Arc::clone(&config);
-        let env = Arc::clone(&environment);
-
-        join_set.spawn(async move {
-            let permit =
-                sem.acquire_owned()
-                    .await
-                    .map_err(|e| NinetyNineError::RunnerExecution {
-                        message: format!("semaphore closed: {e}"),
-                    })?;
-
-            tokio::task::spawn_blocking(move || {
-                let _permit = permit;
-                let start = Instant::now();
-                let runs = execute_iterations(&tc, iterations, &cfg, &env)?;
-                let elapsed = start.elapsed();
-                Ok::<_, NinetyNineError>((tc, runs, elapsed))
-            })
-            .await
-            .map_err(|e| NinetyNineError::RunnerExecution {
-                message: format!("task join error: {e}"),
-            })?
-        });
-    }
-
-    let mut scores = Vec::with_capacity(total);
-    let mut all_runs = Vec::new();
-    let mut pass_count = 0usize;
-    let mut flaky_count = 0usize;
-    let mut fail_count = 0usize;
-    let mut completed = 0usize;
-    let mut duration_regressions = Vec::new();
-
-    while let Some(result) = join_set.join_next().await {
-        let (test_case, runs, elapsed) =
-            result.map_err(|e| NinetyNineError::RunnerExecution {
-                message: format!("task join error: {e}"),
-            })??;
-
-        completed += 1;
-
-        let passed = u32::try_from(
-            runs.iter()
-                .filter(|r| r.outcome == TestOutcome::Passed)
-                .count(),
-        )
-        .unwrap_or(u32::MAX);
-
-        if passed == iterations {
-            pass_count += 1;
-        } else if passed == 0 {
-            fail_count += 1;
-        } else {
-            flaky_count += 1;
-        }
-
-        let line = format_test_result_line(
-            &test_case.name,
-            passed,
-            iterations,
-            elapsed,
-            completed,
-            total,
-        );
-        pb.println(line);
-        pb.set_position(u64::try_from(completed).unwrap_or(u64::MAX));
-        pb.set_message(format!("{flaky_count} flaky, {fail_count} failed"));
-
-        for run in &runs {
-            storage.store_test_run(run, session.id()).await?;
-        }
-
-        let score = detector.calculate_flakiness_score(&test_case.name, &runs);
-        storage.store_flakiness_score(&score).await?;
-
-        check_duration_regression(storage, &test_case.name, &mut duration_regressions).await?;
-
-        all_runs.extend(runs);
-        scores.push(score);
-    }
-
-    pb.finish_and_clear();
-
-    Ok(SuiteResults {
-        scores,
-        all_runs,
-        pass_count,
-        flaky_count,
-        fail_count,
-        duration_regressions,
-    })
-}
-
-async fn check_duration_regression(
-    storage: &StorageBackend,
-    test_name: &str,
-    regressions: &mut Vec<DurationRegression>,
-) -> Result<(), NinetyNineError> {
-    let historical_runs = storage.get_test_runs(test_name, 50).await?;
-    if let Some(regression) = detect_duration_regressions(test_name, &historical_runs, 10, 2.0) {
-        print_duration_warning(
-            test_name,
-            regression.current_ms,
-            regression.mean_ms,
-            regression.deviation_factor,
-        );
-        regressions.push(regression);
-    }
-    Ok(())
-}
-
-fn print_analysis(runs: &[TestRun], config: &Config) {
-    let patterns = detect_patterns(runs);
-    if !patterns.is_empty() {
-        println!("\nDetected Patterns:");
-        for p in &patterns {
-            println!(
-                "  [{:.0}% corr] {} — {}",
-                p.correlation * 100.0,
-                p.pattern_type,
-                p.examples.first().unwrap_or(&String::new())
-            );
-        }
-    }
-
-    let mut test_names: Vec<&str> = runs.iter().map(|r| r.test_name.as_ref()).collect();
-    test_names.sort_unstable();
-    test_names.dedup();
-
-    let mut degrading = Vec::new();
-    for name in &test_names {
-        if let Some(trend) = calculate_trend(name, runs, config.detection.window_size) {
-            if trend.direction == cargo_ninety_nine::types::TrendDirection::Degrading {
-                degrading.push(trend);
-            }
-        }
-    }
-
-    if !degrading.is_empty() {
-        println!("\nDegrading Trends:");
-        for t in &degrading {
-            println!(
-                "  {} — {:.1}% -> {:.1}% (delta: {:+.1}%)",
-                t.test_name,
-                t.previous_score * 100.0,
-                t.recent_score * 100.0,
-                t.score_delta * 100.0,
-            );
-        }
-    }
-}
-
-async fn auto_quarantine(
-    config: &Config,
-    storage: &StorageBackend,
-    detector: &BayesianDetector,
-    scores: &[FlakinessScore],
-) -> Result<(), NinetyNineError> {
-    if !config.quarantine.enabled || !config.quarantine.auto_quarantine {
-        return Ok(());
-    }
-
-    let threshold = &config.quarantine.threshold;
-    for score in scores {
-        if !detector.is_flaky(score) {
-            continue;
-        }
-
-        let exceeds_score = score.probability_flaky >= threshold.flakiness_score;
-        let exceeds_failures = score.consecutive_failures >= threshold.consecutive_failures;
-        let exceeds_rate = score.fail_rate >= threshold.failure_rate;
-
-        if (exceeds_score || exceeds_failures || exceeds_rate)
-            && !storage.is_quarantined(&score.test_name).await?
-        {
-            storage
-                .quarantine_test(
-                    &score.test_name,
-                    "auto-quarantined: exceeded flakiness threshold",
-                    score.probability_flaky,
-                    true,
-                )
-                .await?;
-            println!("Auto-quarantined: {}", score.test_name);
-        }
-    }
-
-    Ok(())
-}
-
-async fn finalize_session(
-    storage: &StorageBackend,
-    session: ActiveSession,
-    detector: &BayesianDetector,
-    scores: &[FlakinessScore],
-    config: &Config,
-) -> Result<(), NinetyNineError> {
-    let test_count = u32::try_from(scores.len()).unwrap_or(u32::MAX);
-    let flaky_count =
-        u32::try_from(scores.iter().filter(|s| detector.is_flaky(s)).count()).unwrap_or(u32::MAX);
-
-    storage
-        .finish_session(session.id(), test_count, flaky_count)
-        .await?;
-
-    let purged = storage
-        .purge_older_than(config.storage.retention_days)
-        .await?;
-    if purged > 0 {
-        tracing::info!(purged, "purged old test runs");
-    }
-
-    Ok(())
-}
-
 async fn run_history(
     storage: &StorageBackend,
     filter: Option<&str>,
     limit: u32,
     output_format: OutputFormat,
+    non_interactive: bool,
 ) -> Result<(), NinetyNineError> {
     let sessions = storage.get_recent_sessions(limit).await?;
 
@@ -471,7 +255,11 @@ async fn run_history(
         None => sessions,
     };
 
-    print_session_report(&sessions, output_format);
+    if non_interactive {
+        print_session_report(&sessions, output_format);
+    } else {
+        cargo_ninety_nine::tui::run_history(sessions)?;
+    }
     Ok(())
 }
 
@@ -480,6 +268,7 @@ async fn run_status(
     config: &Config,
     test_name: Option<&str>,
     output_format: OutputFormat,
+    non_interactive: bool,
 ) -> Result<(), NinetyNineError> {
     if let Some(name) = test_name {
         let score =
@@ -495,13 +284,21 @@ async fn run_status(
         let patterns = detect_patterns(&runs);
 
         print_test_detail(&score, &runs, trend.as_ref(), &patterns, output_format);
-    } else {
+    } else if non_interactive {
         let scores = storage.get_all_scores().await?;
         print_flakiness_report(
             &scores,
             output_format,
             config.detection.confidence_threshold,
         );
+    } else {
+        let scores = storage.get_all_scores().await?;
+        cargo_ninety_nine::tui::run_scores(
+            scores,
+            config.detection.confidence_threshold,
+            storage,
+            config,
+        )?;
     }
     Ok(())
 }
@@ -603,77 +400,4 @@ fn run_init(project_dir: &Path, force: bool) -> Result<(), NinetyNineError> {
 
     println!("Created {}", config_path.display());
     Ok(())
-}
-
-fn detect_git_info() -> (String, String) {
-    let commit = duct::cmd!("git", "rev-parse", "HEAD")
-        .stdout_capture()
-        .stderr_null()
-        .read()
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-
-    let branch = duct::cmd!("git", "branch", "--show-current")
-        .stdout_capture()
-        .stderr_null()
-        .read()
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-
-    (commit, branch)
-}
-
-fn detect_environment() -> TestEnvironment {
-    let rust_version = duct::cmd!("rustc", "--version")
-        .stdout_capture()
-        .stderr_null()
-        .read()
-        .map(|s| s.trim().to_string())
-        .unwrap_or_default();
-
-    TestEnvironment {
-        os: std::env::consts::OS.to_string(),
-        rust_version,
-        cpu_count: std::thread::available_parallelism()
-            .map(|n| u32::try_from(n.get()).unwrap_or(u32::MAX))
-            .unwrap_or(1),
-        memory_gb: detect_memory_gb(),
-        is_ci: std::env::var("CI").is_ok(),
-        ci_provider: detect_ci_provider(),
-    }
-}
-
-fn detect_memory_gb() -> f64 {
-    std::fs::read_to_string("/proc/meminfo")
-        .ok()
-        .and_then(|contents| {
-            contents
-                .lines()
-                .find(|line| line.starts_with("MemTotal:"))
-                .and_then(|line| {
-                    line.split_whitespace()
-                        .nth(1)
-                        .and_then(|kb| kb.parse::<u64>().ok())
-                })
-                .map(|kb| f64::from(u32::try_from(kb / 1024).unwrap_or(u32::MAX)) / 1024.0)
-        })
-        .unwrap_or(0.0)
-}
-
-fn detect_ci_provider() -> Option<String> {
-    if std::env::var("GITHUB_ACTIONS").is_ok() {
-        Some("GitHub Actions".to_string())
-    } else if std::env::var("GITLAB_CI").is_ok() {
-        Some("GitLab CI".to_string())
-    } else if std::env::var("JENKINS_URL").is_ok() {
-        Some("Jenkins".to_string())
-    } else if std::env::var("CIRCLECI").is_ok() {
-        Some("CircleCI".to_string())
-    } else if std::env::var("BUILDKITE").is_ok() {
-        Some("Buildkite".to_string())
-    } else if std::env::var("TF_BUILD").is_ok() {
-        Some("Azure DevOps".to_string())
-    } else {
-        None
-    }
 }

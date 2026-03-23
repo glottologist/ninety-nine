@@ -84,9 +84,29 @@ impl std::fmt::Display for FlakinessCategory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_helpers::test_score;
     use proptest::prelude::*;
 
     proptest! {
+        #[test]
+        fn effective_score_selects_correct_source(
+            probability in 0.0f64..=1.0,
+            fail_rate in 0.0f64..=1.0,
+            confidence in 0.0f64..=1.0,
+            threshold in 0.0f64..=1.0,
+        ) {
+            let mut score = test_score("test", probability);
+            score.confidence = confidence;
+            score.fail_rate = fail_rate;
+
+            let effective = score.effective_score(threshold);
+            if confidence >= threshold {
+                prop_assert!((effective - probability).abs() < f64::EPSILON);
+            } else {
+                prop_assert!((effective - fail_rate).abs() < f64::EPSILON);
+            }
+        }
+
         #[test]
         fn from_score_always_returns_valid_category(score in 0.0f64..=1.0) {
             let category = FlakinessCategory::from_score(score);

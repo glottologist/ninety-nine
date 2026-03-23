@@ -1,6 +1,6 @@
 [package]
 name = "cargo-ninety-nine"
-version = "0.2.6"
+version = "0.3.0"
 authors = ["Jason Ridgway-Taylor <jason@glottologist.co.uk>"]
 description = "A cargo plugin for finding and tracking flaky tests"
 keywords = ["cargo", "flaky", "tests"]
@@ -39,6 +39,9 @@ regex = "1.11"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"] }
 deadpool-postgres = "0.14"
 indicatif = "0.17"
+ratatui = "0.29"
+crossterm = "0.28"
+signal-hook = "0.4"
 
 [lints.rust]
 async_fn_in_trait = "allow"

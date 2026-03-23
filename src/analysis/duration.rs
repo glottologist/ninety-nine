@@ -12,7 +12,11 @@ pub struct DurationRegression {
 
 /// Detects tests whose recent duration significantly exceeds their historical mean.
 ///
-/// Requires at least `min_history` runs to have enough data.
+/// Computes mean and standard deviation from historical runs only (excluding the
+/// latest). When historical std\_dev is zero (all identical durations), a floor of
+/// 1% of the mean is used so that large spikes are still detected.
+///
+/// Requires at least `min_history` total runs (1 latest + historical).
 #[must_use]
 pub fn detect_duration_regressions(
     test_name: &str,
@@ -32,22 +36,29 @@ pub fn detect_duration_regressions(
         })
         .collect();
 
-    let mean = mean(&durations_ms);
-    let std_dev = std_deviation(&durations_ms, mean);
+    let latest = durations_ms[0];
+    let historical = &durations_ms[1..];
 
-    if std_dev < f64::EPSILON {
+    if historical.is_empty() {
         return None;
     }
 
-    let latest = durations_ms[0];
-    let deviation = (latest - mean) / std_dev;
+    let hist_mean = mean(historical);
+    let raw_std_dev = std_deviation(historical, hist_mean);
+    let effective_std_dev = raw_std_dev.max(hist_mean * 0.01);
+
+    if effective_std_dev < f64::EPSILON {
+        return None;
+    }
+
+    let deviation = (latest - hist_mean) / effective_std_dev;
 
     if deviation > threshold_std_devs {
         Some(DurationRegression {
             test_name: TestName::from(test_name),
             current_ms: latest,
-            mean_ms: mean,
-            std_dev_ms: std_dev,
+            mean_ms: hist_mean,
+            std_dev_ms: raw_std_dev,
             deviation_factor: deviation,
         })
     } else {
@@ -87,8 +98,8 @@ mod tests {
         #[test]
         fn mean_within_bounds(values in proptest::collection::vec(0.0f64..1000.0, 1..100)) {
             let m = mean(&values);
-            let min_v = values.iter().cloned().fold(f64::INFINITY, f64::min);
-            let max_v = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let min_v = values.iter().copied().fold(f64::INFINITY, f64::min);
+            let max_v = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
             prop_assert!(m >= min_v - f64::EPSILON);
             prop_assert!(m <= max_v + f64::EPSILON);
         }

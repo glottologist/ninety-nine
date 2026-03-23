@@ -1,4 +1,5 @@
 pub mod backend;
+pub(crate) mod mapping;
 pub mod postgres;
 pub mod schema;
 pub mod sqlite;
@@ -16,9 +17,6 @@ use crate::error::NinetyNineError;
 use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestRun};
 
 /// Trait for test result storage backends.
-///
-/// All methods are async to support both synchronous (`SQLite`) and
-/// asynchronous (`PostgreSQL`) backends uniformly.
 pub trait Storage: Send + Sync {
     /// Stores a new run session.
     ///
