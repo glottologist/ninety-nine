@@ -190,11 +190,14 @@
 <tr><td><code>ci</code></td><td>Generate CI workflow files</td></tr>
 </tbody></table>
 </div>
+<h2 id="interactive-mode"><a class="header" href="#interactive-mode">Interactive Mode</a></h2>
+<p>By default, <code>test</code>, <code>status</code>, and <code>history</code> launch an <a href="./interactive-tui.html">interactive TUI</a> with sortable tables, category filtering, and detail drill-down. Pass <code>--non-interactive</code> (or <code>-N</code>) to use plain text output instead -- useful for CI, scripts, or piped output.</p>
 <h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
 <p>These options apply to all subcommands:</p>
-<pre><code>--project-dir &lt;PATH&gt;   Project root directory (default: .)
---output &lt;FORMAT&gt;      Output format: console or json (default: console)
---verbose, -v          Verbose output during detection
+<pre><code>--project-dir &lt;PATH&gt;       Project root directory (default: .)
+--output &lt;FORMAT&gt;          Output format: console or json (default: console)
+--non-interactive, -N      Disable TUI, use plain text output
+--verbose, -v              Verbose output during detection
 </code></pre>
 <h2 id="typical-workflow"><a class="header" href="#typical-workflow">Typical Workflow</a></h2>
 <ol>

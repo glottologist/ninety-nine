@@ -14,6 +14,7 @@ Flaky tests -- tests that sometimes pass and sometimes fail without code changes
 - **Filter DSL** -- expressive query language to target tests by name, package, binary, kind, or flakiness status
 - **Pattern analysis** -- detects time-of-day and environmental (CI vs local) failure patterns
 - **Trend tracking** -- monitors whether tests are improving, stable, or degrading over time
+- **Interactive TUI** -- terminal interface for browsing scores with sorting, filtering, and detail drill-down
 - **Quarantine management** -- manually or automatically quarantine flaky tests that exceed thresholds
 - **Multiple export formats** -- JUnit XML, HTML reports, CSV, and JSON for integration with other tools
 - **CI workflow generation** -- generates ready-to-use GitHub Actions and GitLab CI configurations

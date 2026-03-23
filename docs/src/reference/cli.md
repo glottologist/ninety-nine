@@ -12,7 +12,10 @@ cargo ninety-nine [OPTIONS] <COMMAND>
 |--------|---------|-------------|
 | `--project-dir <PATH>` | `.` | Project root directory |
 | `--output <FORMAT>` | `console` | Output format: `console` or `json` |
+| `-N, --non-interactive` | false | Disable TUI, use plain text output |
 | `-v, --verbose` | false | Enable verbose output |
+
+By default, `test`, `status`, and `history` launch an interactive TUI. Use `-N` for CI pipelines, scripts, or piped output.
 
 ---
 
@@ -111,7 +114,7 @@ cargo ninety-nine init [OPTIONS]
 
 ### status
 
-Show flakiness status for tests.
+Show flakiness status for tests. Without a test name, launches the [interactive TUI](../guides/interactive-tui.md) (or prints a table with `-N`).
 
 ```
 cargo ninety-nine status [TEST_NAME]
@@ -119,7 +122,7 @@ cargo ninety-nine status [TEST_NAME]
 
 | Argument | Description |
 |----------|-------------|
-| `[TEST_NAME]` | Show detailed status for a specific test. Omit to show all scores. |
+| `[TEST_NAME]` | Show detailed status for a specific test. Omit to browse all scores interactively. |
 
 When a test name is provided, shows: category, P(flaky), pass rate, total runs, consecutive failures, credible interval, trend direction, failure patterns, and recent run history.
 
@@ -127,7 +130,7 @@ When a test name is provided, shows: category, P(flaky), pass rate, total runs, 
 
 ### history
 
-Show detection session history.
+Show detection session history. Launches the [interactive TUI](../guides/interactive-tui.md) by default (or prints a table with `-N`).
 
 ```
 cargo ninety-nine history [OPTIONS] [FILTER]

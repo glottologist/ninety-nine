@@ -5,8 +5,10 @@
 ```
 cargo-ninety-nine
 src/
-  main.rs              Entry point, command dispatch, orchestration
+  main.rs              Entry point, command dispatch
   lib.rs               Module re-exports
+  env.rs               Git info, environment, CI provider detection
+  orchestrator.rs      Test execution pipeline, session lifecycle, auto-quarantine
   error.rs             NinetyNineError enum (thiserror)
   analysis/
     mod.rs             Shared failure_rate() helper
@@ -41,9 +43,15 @@ src/
   storage/
     mod.rs             Storage trait (async), open_storage() factory
     backend.rs         StorageBackend enum with dispatch! macro
+    mapping.rs         Shared row-to-domain-type conversion (RawTestRunRow, RawScoreRow)
     sqlite.rs          SQLite implementation (rusqlite, WAL mode)
     postgres.rs        PostgreSQL implementation (deadpool-postgres)
     schema.rs          SQL migration definitions
+  tui/
+    mod.rs             TUI entry points, event loop, terminal guard, signal handlers
+    app.rs             Application state (ScoresApp, HistoryApp, Cursor, SortField)
+    input.rs           Key event mapping to actions
+    render.rs          Ratatui widget rendering (scores table, detail overlay, history)
   types/
     mod.rs             Type re-exports
     test_run.rs        TestRun, TestOutcome, TestEnvironment
@@ -101,11 +109,12 @@ Runner Backend (NativeRunner)
   |   + Duration      |  --> DurationRegression (optional)
   +-------------------+
             |
-      +-----+-----+
-      v           v
-  Storage      Reporter
-  (SQLite/     (console/
-   Postgres)    JSON/export)
+      +-----+-----+-------+
+      v           v       v
+  Storage      Reporter  TUI
+  (SQLite/     (console/  (ratatui,
+   Postgres)    JSON/      interactive
+                export)    scores/history)
 ```
 
 ## Filter DSL Pipeline

@@ -191,6 +191,7 @@
 <li><strong>Filter DSL</strong> -- expressive query language to target tests by name, package, binary, kind, or flakiness status</li>
 <li><strong>Pattern analysis</strong> -- detects time-of-day and environmental (CI vs local) failure patterns</li>
 <li><strong>Trend tracking</strong> -- monitors whether tests are improving, stable, or degrading over time</li>
+<li><strong>Interactive TUI</strong> -- terminal interface for browsing scores with sorting, filtering, and detail drill-down</li>
 <li><strong>Quarantine management</strong> -- manually or automatically quarantine flaky tests that exceed thresholds</li>
 <li><strong>Multiple export formats</strong> -- JUnit XML, HTML reports, CSV, and JSON for integration with other tools</li>
 <li><strong>CI workflow generation</strong> -- generates ready-to-use GitHub Actions and GitLab CI configurations</li>
@@ -296,11 +297,14 @@ fail_on_flaky = true
 <tr><td><code>ci</code></td><td>Generate CI workflow files</td></tr>
 </tbody></table>
 </div>
+<h2 id="interactive-mode"><a class="header" href="#interactive-mode">Interactive Mode</a></h2>
+<p>By default, <code>test</code>, <code>status</code>, and <code>history</code> launch an <a href="guides/./interactive-tui.html">interactive TUI</a> with sortable tables, category filtering, and detail drill-down. Pass <code>--non-interactive</code> (or <code>-N</code>) to use plain text output instead -- useful for CI, scripts, or piped output.</p>
 <h2 id="global-options"><a class="header" href="#global-options">Global Options</a></h2>
 <p>These options apply to all subcommands:</p>
-<pre><code>--project-dir &lt;PATH&gt;   Project root directory (default: .)
---output &lt;FORMAT&gt;      Output format: console or json (default: console)
---verbose, -v          Verbose output during detection
+<pre><code>--project-dir &lt;PATH&gt;       Project root directory (default: .)
+--output &lt;FORMAT&gt;          Output format: console or json (default: console)
+--non-interactive, -N      Disable TUI, use plain text output
+--verbose, -v              Verbose output during detection
 </code></pre>
 <h2 id="typical-workflow"><a class="header" href="#typical-workflow">Typical Workflow</a></h2>
 <ol>
@@ -391,6 +395,70 @@ tests::stable_test                                   10    100.0%       1.0%    
 <p>Set <code>reporting.console.summary_only = true</code> in config to show only aggregate counts:</p>
 <pre><code>Summary: 42 tests, 3 flaky, 39 stable
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="interactive-tui"><a class="header" href="#interactive-tui">Interactive TUI</a></h1>
+<p><code>cargo ninety-nine</code> includes a terminal user interface for browsing flakiness scores and session history. The TUI launches automatically when running <code>status</code>, <code>history</code>, or <code>test</code> in a terminal. Pass <code>--non-interactive</code> (or <code>-N</code>) to disable it.</p>
+<h2 id="scores-view"><a class="header" href="#scores-view">Scores View</a></h2>
+<p>The scores view is the main screen after running <code>test</code>, or when running <code>status</code> without a test name argument.</p>
+<pre><code>cargo ninety-nine | 42/42 tests
+Filter: All | Sort: P(flaky) (desc)
++--------------------------------+------+-------+---------+----------+----------+
+| Test                           | Runs | Pass% | P(flaky)| Category |Confidence|
++--------------------------------+------+-------+---------+----------+----------+
+| tests::network::retry_timeout  |   20 | 75.0% |   0.250 | Frequent |     0.89 |
+| tests::db::concurrent_writes   |   20 | 85.0% |   0.150 | Moderate |     0.92 |
+| tests::parser::edge_cases      |   20 | 95.0% |   0.050 | Occasional|    0.97 |
+| tests::math::addition          |   20 |100.0% |   0.010 | Stable   |     0.99 |
++--------------------------------+------+-------+---------+----------+----------+
+j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
+</code></pre>
+<h3 id="keybindings"><a class="header" href="#keybindings">Keybindings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody>
+<tr><td><code>j</code> / Down arrow</td><td>Move selection down</td></tr>
+<tr><td><code>k</code> / Up arrow</td><td>Move selection up</td></tr>
+<tr><td><code>s</code></td><td>Cycle sort field (Test, Runs, Pass%, P(flaky), Category)</td></tr>
+<tr><td><code>r</code></td><td>Reverse sort order</td></tr>
+<tr><td><code>f</code></td><td>Cycle category filter (All, Stable, Occasional, Moderate, Frequent, Critical)</td></tr>
+<tr><td>Enter</td><td>Drill into selected test detail</td></tr>
+<tr><td><code>q</code> / Esc</td><td>Quit</td></tr>
+<tr><td>Ctrl+C</td><td>Quit</td></tr>
+</tbody></table>
+</div>
+<h3 id="sorting"><a class="header" href="#sorting">Sorting</a></h3>
+<p>Press <code>s</code> to cycle through sort fields. Press <code>r</code> to toggle ascending/descending. The current sort field and direction are shown in the filter bar.</p>
+<h3 id="filtering"><a class="header" href="#filtering">Filtering</a></h3>
+<p>Press <code>f</code> to cycle through category filters. When a filter is active, only tests in that category are shown. The count in the header updates to reflect the filtered set.</p>
+<h2 id="detail-view"><a class="header" href="#detail-view">Detail View</a></h2>
+<p>Press Enter on a test to open its detail overlay, showing:</p>
+<ul>
+<li><strong>Score summary</strong> -- category, P(flaky), confidence, pass/fail rates, total runs</li>
+<li><strong>Bayesian parameters</strong> -- alpha, beta, posterior mean, credible interval</li>
+<li><strong>Trend</strong> -- direction (Improving/Stable/Degrading) with score delta</li>
+<li><strong>Failure patterns</strong> -- correlated patterns with correlation percentage</li>
+<li><strong>Recent runs</strong> -- last 10 runs with outcome, duration, and timestamp</li>
+</ul>
+<p>Press Enter, <code>q</code>, or Esc to return to the scores list.</p>
+<h2 id="history-view"><a class="header" href="#history-view">History View</a></h2>
+<p>The history view shows past detection sessions:</p>
+<pre><code>cargo ninety-nine | 5 sessions
++--------------------+------+------+-----------------+----------+
+| Date               | Tests| Flaky| Branch          | Commit   |
++--------------------+------+------+-----------------+----------+
+| 2026-03-23 14:30   |   42 |    3 | main            | 9e9bce5  |
+| 2026-03-22 09:15   |   42 |    2 | feature/tui     | a9f0068  |
++--------------------+------+------+-----------------+----------+
+j/k:nav  q:quit
+</code></pre>
+<p>Navigate with <code>j</code>/<code>k</code> or arrow keys. Press <code>q</code> or Esc to quit.</p>
+<h2 id="disabling-the-tui"><a class="header" href="#disabling-the-tui">Disabling the TUI</a></h2>
+<p>For CI pipelines, scripts, or piped output, use <code>--non-interactive</code>:</p>
+<pre><code class="language-bash">cargo ninety-nine status --non-interactive
+cargo ninety-nine history --non-interactive
+cargo ninety-nine test -n 10 --non-interactive
+</code></pre>
+<p>This produces the same text output as previous versions.</p>
+<h2 id="terminal-requirements"><a class="header" href="#terminal-requirements">Terminal Requirements</a></h2>
+<p>The TUI uses the alternate screen buffer and raw mode via crossterm. It works in any terminal emulator that supports ANSI escape sequences. On Unix, SIGTERM and SIGHUP trigger graceful shutdown. On all platforms, the terminal state is restored on exit, including after panics.</p>
+<p>Minimum terminal size: 60 columns by 10 rows.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="filter-dsl"><a class="header" href="#filter-dsl">Filter DSL</a></h1>
 <p>The filter DSL lets you select which tests to run using an expressive query language. Filters are passed as the positional argument to the <code>test</code> command.</p>
 <pre><code class="language-bash">cargo ninety-nine test "&lt;filter expression&gt;"
@@ -2307,8 +2375,10 @@ match run(args).await {
 <h2 id="module-overview"><a class="header" href="#module-overview">Module Overview</a></h2>
 <pre><code>cargo-ninety-nine
 src/
-  main.rs              Entry point, command dispatch, orchestration
+  main.rs              Entry point, command dispatch
   lib.rs               Module re-exports
+  env.rs               Git info, environment, CI provider detection
+  orchestrator.rs      Test execution pipeline, session lifecycle, auto-quarantine
   error.rs             NinetyNineError enum (thiserror)
   analysis/
     mod.rs             Shared failure_rate() helper
@@ -2343,9 +2413,15 @@ src/
   storage/
     mod.rs             Storage trait (async), open_storage() factory
     backend.rs         StorageBackend enum with dispatch! macro
+    mapping.rs         Shared row-to-domain-type conversion (RawTestRunRow, RawScoreRow)
     sqlite.rs          SQLite implementation (rusqlite, WAL mode)
     postgres.rs        PostgreSQL implementation (deadpool-postgres)
     schema.rs          SQL migration definitions
+  tui/
+    mod.rs             TUI entry points, event loop, terminal guard, signal handlers
+    app.rs             Application state (ScoresApp, HistoryApp, Cursor, SortField)
+    input.rs           Key event mapping to actions
+    render.rs          Ratatui widget rendering (scores table, detail overlay, history)
   types/
     mod.rs             Type re-exports
     test_run.rs        TestRun, TestOutcome, TestEnvironment
@@ -2400,11 +2476,12 @@ Runner Backend (NativeRunner)
   |   + Duration      |  --&gt; DurationRegression (optional)
   +-------------------+
             |
-      +-----+-----+
-      v           v
-  Storage      Reporter
-  (SQLite/     (console/
-   Postgres)    JSON/export)
+      +-----+-----+-------+
+      v           v       v
+  Storage      Reporter  TUI
+  (SQLite/     (console/  (ratatui,
+   Postgres)    JSON/      interactive
+                export)    scores/history)
 </code></pre>
 <h2 id="filter-dsl-pipeline"><a class="header" href="#filter-dsl-pipeline">Filter DSL Pipeline</a></h2>
 <p>The filter system has three stages:</p>
@@ -2591,15 +2668,17 @@ where:
 <p>Duration regression detection identifies tests whose execution time has significantly increased compared to their historical average. This helps catch performance regressions early, even when tests still pass.</p>
 <h3 id="how-it-works-2"><a class="header" href="#how-it-works-2">How It Works</a></h3>
 <ol>
-<li>Collect all historical run durations for a test (most recent first)</li>
-<li>Require at least <code>min_history_runs</code> data points (configured in <code>[detection.duration_regression]</code>)</li>
-<li>Compute the <strong>mean</strong> and <strong>sample standard deviation</strong> of all durations</li>
-<li>Compare the <strong>latest</strong> duration against the historical distribution:</li>
+<li>Collect all run durations for a test (most recent first)</li>
+<li>Require at least <code>min_history_runs</code> total data points</li>
+<li>Separate the <strong>latest</strong> run from <strong>historical</strong> runs</li>
+<li>Compute the <strong>mean</strong> and <strong>sample standard deviation</strong> of historical durations only (the latest run is excluded to avoid polluting the baseline with the spike being measured)</li>
+<li>Apply a standard deviation floor of 1% of the mean (handles identical-duration histories where raw std_dev is zero)</li>
+<li>Compute the z-score:</li>
 </ol>
-<pre><code>deviation_factor = (latest_duration - mean) / standard_deviation
+<pre><code>deviation = (latest_duration - historical_mean) / effective_std_dev
 </code></pre>
-<ol start="5">
-<li>If <code>deviation_factor &gt; threshold</code>, a regression is reported</li>
+<ol start="7">
+<li>If <code>deviation &gt; threshold</code>, a regression is reported with the actual slowdown ratio (<code>latest / mean</code>)</li>
 </ol>
 <h3 id="configuration-1"><a class="header" href="#configuration-1">Configuration</a></h3>
 <p>Duration regression detection is disabled by default. Enable it in <code>.ninety-nine.toml</code>:</p>
@@ -2618,20 +2697,24 @@ StdDev = 2.5
 </tbody></table>
 </div>
 <h3 id="output"><a class="header" href="#output">Output</a></h3>
-<p>When a regression is detected, the output includes:</p>
+<p>When a regression is detected, the CLI displays:</p>
+<pre><code>  SLOW tests::my_test — 500ms (mean: 100ms, 5.0x)
+</code></pre>
+<p>The <code>DurationRegression</code> struct contains:</p>
 <div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>test_name</code></td><td>Fully qualified name of the affected test</td></tr>
 <tr><td><code>current_ms</code></td><td>Duration of the latest run in milliseconds</td></tr>
-<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds</td></tr>
+<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds (excludes latest)</td></tr>
 <tr><td><code>std_dev_ms</code></td><td>Standard deviation of historical durations</td></tr>
-<tr><td><code>deviation_factor</code></td><td>How many standard deviations above the mean</td></tr>
+<tr><td><code>deviation_factor</code></td><td>How many standard deviations above the historical mean</td></tr>
 </tbody></table>
 </div>
+<p>The display shows the actual slowdown ratio (<code>current_ms / mean_ms</code>) rather than the z-score.</p>
 <h3 id="edge-cases"><a class="header" href="#edge-cases">Edge Cases</a></h3>
 <ul>
-<li>If the standard deviation is effectively zero (all durations identical), no regression is reported regardless of the latest duration</li>
-<li>If fewer than <code>min_history_runs</code> runs exist, no regression check is performed</li>
-<li>The latest run (index 0) is included in the mean/stddev calculation along with historical runs</li>
+<li>If the effective standard deviation is near zero after flooring, no regression is reported</li>
+<li>If fewer than <code>min_history_runs</code> total runs exist, no regression check is performed</li>
+<li>If only one historical run exists (after separating the latest), the mean is that single value and the floor applies</li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="storage"><a class="header" href="#storage">Storage</a></h1>
 <h2 id="storage-trait-1"><a class="header" href="#storage-trait-1">Storage Trait</a></h2>
@@ -2791,9 +2874,11 @@ retention_days = 30
 <div class="table-wrapper"><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>--project-dir &lt;PATH&gt;</code></td><td><code>.</code></td><td>Project root directory</td></tr>
 <tr><td><code>--output &lt;FORMAT&gt;</code></td><td><code>console</code></td><td>Output format: <code>console</code> or <code>json</code></td></tr>
+<tr><td><code>-N, --non-interactive</code></td><td>false</td><td>Disable TUI, use plain text output</td></tr>
 <tr><td><code>-v, --verbose</code></td><td>false</td><td>Enable verbose output</td></tr>
 </tbody></table>
 </div>
+<p>By default, <code>test</code>, <code>status</code>, and <code>history</code> launch an interactive TUI. Use <code>-N</code> for CI pipelines, scripts, or piped output.</p>
 <hr />
 <h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
 <h3 id="test"><a class="header" href="#test">test</a></h3>
@@ -2868,17 +2953,17 @@ cargo ninety-nine test "(flaky | test(slow)) &amp; !quarantined"
 </div>
 <hr />
 <h3 id="status"><a class="header" href="#status">status</a></h3>
-<p>Show flakiness status for tests.</p>
+<p>Show flakiness status for tests. Without a test name, launches the <a href="reference/../guides/interactive-tui.html">interactive TUI</a> (or prints a table with <code>-N</code>).</p>
 <pre><code>cargo ninety-nine status [TEST_NAME]
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>[TEST_NAME]</code></td><td>Show detailed status for a specific test. Omit to show all scores.</td></tr>
+<tr><td><code>[TEST_NAME]</code></td><td>Show detailed status for a specific test. Omit to browse all scores interactively.</td></tr>
 </tbody></table>
 </div>
 <p>When a test name is provided, shows: category, P(flaky), pass rate, total runs, consecutive failures, credible interval, trend direction, failure patterns, and recent run history.</p>
 <hr />
 <h3 id="history"><a class="header" href="#history">history</a></h3>
-<p>Show detection session history.</p>
+<p>Show detection session history. Launches the <a href="reference/../guides/interactive-tui.html">interactive TUI</a> by default (or prints a table with <code>-N</code>).</p>
 <pre><code>cargo ninety-nine history [OPTIONS] [FILTER]
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Argument/Option</th><th>Default</th><th>Description</th></tr></thead><tbody>

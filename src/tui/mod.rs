@@ -70,8 +70,11 @@ fn install_panic_hook() {
 
 fn install_signal_handlers() -> Result<Arc<AtomicBool>, NinetyNineError> {
     let shutdown = Arc::new(AtomicBool::new(false));
-    signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&shutdown))?;
-    signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&shutdown))?;
+    #[cfg(unix)]
+    {
+        signal_hook::flag::register(signal_hook::consts::SIGTERM, Arc::clone(&shutdown))?;
+        signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&shutdown))?;
+    }
     Ok(shutdown)
 }
 

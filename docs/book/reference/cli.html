@@ -186,9 +186,11 @@
 <div class="table-wrapper"><table><thead><tr><th>Option</th><th>Default</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>--project-dir &lt;PATH&gt;</code></td><td><code>.</code></td><td>Project root directory</td></tr>
 <tr><td><code>--output &lt;FORMAT&gt;</code></td><td><code>console</code></td><td>Output format: <code>console</code> or <code>json</code></td></tr>
+<tr><td><code>-N, --non-interactive</code></td><td>false</td><td>Disable TUI, use plain text output</td></tr>
 <tr><td><code>-v, --verbose</code></td><td>false</td><td>Enable verbose output</td></tr>
 </tbody></table>
 </div>
+<p>By default, <code>test</code>, <code>status</code>, and <code>history</code> launch an interactive TUI. Use <code>-N</code> for CI pipelines, scripts, or piped output.</p>
 <hr />
 <h2 id="commands"><a class="header" href="#commands">Commands</a></h2>
 <h3 id="test"><a class="header" href="#test">test</a></h3>
@@ -263,17 +265,17 @@ cargo ninety-nine test "(flaky | test(slow)) &amp; !quarantined"
 </div>
 <hr />
 <h3 id="status"><a class="header" href="#status">status</a></h3>
-<p>Show flakiness status for tests.</p>
+<p>Show flakiness status for tests. Without a test name, launches the <a href="../guides/interactive-tui.html">interactive TUI</a> (or prints a table with <code>-N</code>).</p>
 <pre><code>cargo ninety-nine status [TEST_NAME]
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Argument</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>[TEST_NAME]</code></td><td>Show detailed status for a specific test. Omit to show all scores.</td></tr>
+<tr><td><code>[TEST_NAME]</code></td><td>Show detailed status for a specific test. Omit to browse all scores interactively.</td></tr>
 </tbody></table>
 </div>
 <p>When a test name is provided, shows: category, P(flaky), pass rate, total runs, consecutive failures, credible interval, trend direction, failure patterns, and recent run history.</p>
 <hr />
 <h3 id="history"><a class="header" href="#history">history</a></h3>
-<p>Show detection session history.</p>
+<p>Show detection session history. Launches the <a href="../guides/interactive-tui.html">interactive TUI</a> by default (or prints a table with <code>-N</code>).</p>
 <pre><code>cargo ninety-nine history [OPTIONS] [FILTER]
 </code></pre>
 <div class="table-wrapper"><table><thead><tr><th>Argument/Option</th><th>Default</th><th>Description</th></tr></thead><tbody>

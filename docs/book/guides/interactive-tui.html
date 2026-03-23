@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Analysis &amp; Patterns - cargo ninety-nine</title>
+        <title>Interactive TUI - cargo ninety-nine</title>
 
 
         <!-- Custom HTML head -->
@@ -178,118 +178,80 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="analysis-and-patterns"><a class="header" href="#analysis-and-patterns">Analysis and Patterns</a></h1>
-<h2 id="pattern-detection"><a class="header" href="#pattern-detection">Pattern Detection</a></h2>
-<p>After running tests, <code>cargo ninety-nine</code> analyzes failure data to identify patterns that might explain why tests are flaky.</p>
-<h3 id="pattern-types"><a class="header" href="#pattern-types">Pattern Types</a></h3>
-<div class="table-wrapper"><table><thead><tr><th>Pattern</th><th>Detection Method</th></tr></thead><tbody>
-<tr><td><strong>TimeOfDay</strong></td><td>Failures concentrated at a specific hour (3x expected rate)</td></tr>
-<tr><td><strong>Environmental</strong></td><td>Failure rate differs &gt; 15% between CI and local environments</td></tr>
-<tr><td><strong>Random</strong></td><td>Failures present but no discernible pattern (fallback)</td></tr>
+                        <h1 id="interactive-tui"><a class="header" href="#interactive-tui">Interactive TUI</a></h1>
+<p><code>cargo ninety-nine</code> includes a terminal user interface for browsing flakiness scores and session history. The TUI launches automatically when running <code>status</code>, <code>history</code>, or <code>test</code> in a terminal. Pass <code>--non-interactive</code> (or <code>-N</code>) to disable it.</p>
+<h2 id="scores-view"><a class="header" href="#scores-view">Scores View</a></h2>
+<p>The scores view is the main screen after running <code>test</code>, or when running <code>status</code> without a test name argument.</p>
+<pre><code>cargo ninety-nine | 42/42 tests
+Filter: All | Sort: P(flaky) (desc)
++--------------------------------+------+-------+---------+----------+----------+
+| Test                           | Runs | Pass% | P(flaky)| Category |Confidence|
++--------------------------------+------+-------+---------+----------+----------+
+| tests::network::retry_timeout  |   20 | 75.0% |   0.250 | Frequent |     0.89 |
+| tests::db::concurrent_writes   |   20 | 85.0% |   0.150 | Moderate |     0.92 |
+| tests::parser::edge_cases      |   20 | 95.0% |   0.050 | Occasional|    0.97 |
+| tests::math::addition          |   20 |100.0% |   0.010 | Stable   |     0.99 |
++--------------------------------+------+-------+---------+----------+----------+
+j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
+</code></pre>
+<h3 id="keybindings"><a class="header" href="#keybindings">Keybindings</a></h3>
+<div class="table-wrapper"><table><thead><tr><th>Key</th><th>Action</th></tr></thead><tbody>
+<tr><td><code>j</code> / Down arrow</td><td>Move selection down</td></tr>
+<tr><td><code>k</code> / Up arrow</td><td>Move selection up</td></tr>
+<tr><td><code>s</code></td><td>Cycle sort field (Test, Runs, Pass%, P(flaky), Category)</td></tr>
+<tr><td><code>r</code></td><td>Reverse sort order</td></tr>
+<tr><td><code>f</code></td><td>Cycle category filter (All, Stable, Occasional, Moderate, Frequent, Critical)</td></tr>
+<tr><td>Enter</td><td>Drill into selected test detail</td></tr>
+<tr><td><code>q</code> / Esc</td><td>Quit</td></tr>
+<tr><td>Ctrl+C</td><td>Quit</td></tr>
 </tbody></table>
 </div>
-<h3 id="time-of-day-detection"><a class="header" href="#time-of-day-detection">Time-of-Day Detection</a></h3>
-<p>Requires at least 5 failures. Counts failures by hour (0-23 UTC) and computes:</p>
-<pre><code>concentration = max_hour_count / expected_per_hour
-</code></pre>
-<p>If <code>concentration &gt;= 3.0</code>, a TimeOfDay pattern is reported with:</p>
+<h3 id="sorting"><a class="header" href="#sorting">Sorting</a></h3>
+<p>Press <code>s</code> to cycle through sort fields. Press <code>r</code> to toggle ascending/descending. The current sort field and direction are shown in the filter bar.</p>
+<h3 id="filtering"><a class="header" href="#filtering">Filtering</a></h3>
+<p>Press <code>f</code> to cycle through category filters. When a filter is active, only tests in that category are shown. The count in the header updates to reflect the filtered set.</p>
+<h2 id="detail-view"><a class="header" href="#detail-view">Detail View</a></h2>
+<p>Press Enter on a test to open its detail overlay, showing:</p>
 <ul>
-<li><code>correlation</code>: <code>min(concentration - 1.0, 1.0)</code></li>
-<li><code>examples</code>: the peak hour identified</li>
+<li><strong>Score summary</strong> -- category, P(flaky), confidence, pass/fail rates, total runs</li>
+<li><strong>Bayesian parameters</strong> -- alpha, beta, posterior mean, credible interval</li>
+<li><strong>Trend</strong> -- direction (Improving/Stable/Degrading) with score delta</li>
+<li><strong>Failure patterns</strong> -- correlated patterns with correlation percentage</li>
+<li><strong>Recent runs</strong> -- last 10 runs with outcome, duration, and timestamp</li>
 </ul>
-<p>This pattern suggests timing-dependent failures (e.g., midnight log rotation, scheduled background jobs).</p>
-<h3 id="environmental-detection"><a class="header" href="#environmental-detection">Environmental Detection</a></h3>
-<p>Requires at least 3 CI runs and 3 local runs. Compares failure rates between environments:</p>
-<pre><code>diff = |ci_fail_rate - local_fail_rate|
+<p>Press Enter, <code>q</code>, or Esc to return to the scores list.</p>
+<h2 id="history-view"><a class="header" href="#history-view">History View</a></h2>
+<p>The history view shows past detection sessions:</p>
+<pre><code>cargo ninety-nine | 5 sessions
++--------------------+------+------+-----------------+----------+
+| Date               | Tests| Flaky| Branch          | Commit   |
++--------------------+------+------+-----------------+----------+
+| 2026-03-23 14:30   |   42 |    3 | main            | 9e9bce5  |
+| 2026-03-22 09:15   |   42 |    2 | feature/tui     | a9f0068  |
++--------------------+------+------+-----------------+----------+
+j/k:nav  q:quit
 </code></pre>
-<p>If <code>diff &gt;= 0.15</code>, an Environmental pattern is reported, identifying which environment has the higher failure rate. This pattern suggests resource-dependent failures (e.g., CPU count, memory limits, file system speed).</p>
-<h3 id="random-pattern"><a class="header" href="#random-pattern">Random Pattern</a></h3>
-<p>If failures exist but no specific pattern is detected, a Random pattern is reported. This is the fallback -- it means failures occur but do not correlate with time or environment.</p>
-<h2 id="trend-analysis"><a class="header" href="#trend-analysis">Trend Analysis</a></h2>
-<p>Trend analysis compares recent failure rates to previous failure rates within a sliding window.</p>
-<h3 id="how-it-works"><a class="header" href="#how-it-works">How It Works</a></h3>
-<ol>
-<li>Filter runs for a specific test name</li>
-<li>Take up to <code>window_size</code> most recent runs (configurable, default: 100)</li>
-<li>Split into two halves: <strong>recent</strong> (first half) and <strong>previous</strong> (second half)</li>
-<li>Compute failure rate for each half</li>
-<li>Classify the delta:</li>
-</ol>
-<div class="table-wrapper"><table><thead><tr><th>Delta</th><th>Direction</th></tr></thead><tbody>
-<tr><td>&gt; 5%</td><td>Degrading</td></tr>
-<tr><td>&lt; -5%</td><td>Improving</td></tr>
-<tr><td>within +/- 5%</td><td>Stable</td></tr>
-</tbody></table>
-</div>
-<h3 id="requirements"><a class="header" href="#requirements">Requirements</a></h3>
-<p>At least 4 runs are required for trend calculation. Fewer runs return <code>None</code>.</p>
-<h3 id="where-trends-are-shown"><a class="header" href="#where-trends-are-shown">Where Trends Are Shown</a></h3>
-<ul>
-<li><code>cargo ninety-nine status &lt;test_name&gt;</code> -- shows trend direction and delta</li>
-<li>After <code>test</code> -- degrading trends are highlighted in the post-detection analysis</li>
-</ul>
-<h2 id="duration-regression-analysis"><a class="header" href="#duration-regression-analysis">Duration Regression Analysis</a></h2>
-<p>Duration regression detection identifies tests whose execution time has significantly increased compared to their historical average. This helps catch performance regressions early, even when tests still pass.</p>
-<h3 id="how-it-works-1"><a class="header" href="#how-it-works-1">How It Works</a></h3>
-<ol>
-<li>Collect all run durations for a test (most recent first)</li>
-<li>Require at least <code>min_history_runs</code> total data points</li>
-<li>Separate the <strong>latest</strong> run from <strong>historical</strong> runs</li>
-<li>Compute the <strong>mean</strong> and <strong>sample standard deviation</strong> of historical durations only (the latest run is excluded to avoid polluting the baseline with the spike being measured)</li>
-<li>Apply a standard deviation floor of 1% of the mean (handles identical-duration histories where raw std_dev is zero)</li>
-<li>Compute the z-score:</li>
-</ol>
-<pre><code>deviation = (latest_duration - historical_mean) / effective_std_dev
+<p>Navigate with <code>j</code>/<code>k</code> or arrow keys. Press <code>q</code> or Esc to quit.</p>
+<h2 id="disabling-the-tui"><a class="header" href="#disabling-the-tui">Disabling the TUI</a></h2>
+<p>For CI pipelines, scripts, or piped output, use <code>--non-interactive</code>:</p>
+<pre><code class="language-bash">cargo ninety-nine status --non-interactive
+cargo ninety-nine history --non-interactive
+cargo ninety-nine test -n 10 --non-interactive
 </code></pre>
-<ol start="7">
-<li>If <code>deviation &gt; threshold</code>, a regression is reported with the actual slowdown ratio (<code>latest / mean</code>)</li>
-</ol>
-<h3 id="configuration"><a class="header" href="#configuration">Configuration</a></h3>
-<p>Duration regression detection is disabled by default. Enable it in <code>.ninety-nine.toml</code>:</p>
-<pre><code class="language-toml">[detection.duration_regression]
-enabled = true
-min_history_runs = 10
-
-# Flag when latest run exceeds 2.5 standard deviations above the mean
-[detection.duration_regression.threshold]
-StdDev = 2.5
-</code></pre>
-<p>Two threshold variants are available:</p>
-<div class="table-wrapper"><table><thead><tr><th>Variant</th><th>Description</th><th>Example</th></tr></thead><tbody>
-<tr><td><code>StdDev(f64)</code></td><td>Number of standard deviations above the mean</td><td><code>StdDev = 2.0</code> flags tests running &gt;2 sigma slower</td></tr>
-<tr><td><code>Multiplier(f64)</code></td><td>Multiple of the historical mean</td><td><code>Multiplier = 3.0</code> flags tests taking &gt;3x their average</td></tr>
-</tbody></table>
-</div>
-<h3 id="output"><a class="header" href="#output">Output</a></h3>
-<p>When a regression is detected, the CLI displays:</p>
-<pre><code>  SLOW tests::my_test — 500ms (mean: 100ms, 5.0x)
-</code></pre>
-<p>The <code>DurationRegression</code> struct contains:</p>
-<div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
-<tr><td><code>test_name</code></td><td>Fully qualified name of the affected test</td></tr>
-<tr><td><code>current_ms</code></td><td>Duration of the latest run in milliseconds</td></tr>
-<tr><td><code>mean_ms</code></td><td>Historical mean duration in milliseconds (excludes latest)</td></tr>
-<tr><td><code>std_dev_ms</code></td><td>Standard deviation of historical durations</td></tr>
-<tr><td><code>deviation_factor</code></td><td>How many standard deviations above the historical mean</td></tr>
-</tbody></table>
-</div>
-<p>The display shows the actual slowdown ratio (<code>current_ms / mean_ms</code>) rather than the z-score.</p>
-<h3 id="edge-cases"><a class="header" href="#edge-cases">Edge Cases</a></h3>
-<ul>
-<li>If the effective standard deviation is near zero after flooring, no regression is reported</li>
-<li>If fewer than <code>min_history_runs</code> total runs exist, no regression check is performed</li>
-<li>If only one historical run exists (after separating the latest), the mean is that single value and the floor applies</li>
-</ul>
+<p>This produces the same text output as previous versions.</p>
+<h2 id="terminal-requirements"><a class="header" href="#terminal-requirements">Terminal Requirements</a></h2>
+<p>The TUI uses the alternate screen buffer and raw mode via crossterm. It works in any terminal emulator that supports ANSI escape sequences. On Unix, SIGTERM and SIGHUP trigger graceful shutdown. On all platforms, the terminal state is restored on exit, including after panics.</p>
+<p>Minimum terminal size: 60 columns by 10 rows.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../reference/bayesian.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../guides/detecting.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../reference/storage.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../guides/filter-dsl.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -299,11 +261,11 @@ StdDev = 2.5
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../reference/bayesian.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../guides/detecting.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../reference/storage.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../guides/filter-dsl.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>

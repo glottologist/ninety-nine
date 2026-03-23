@@ -8,6 +8,7 @@
   - [Configuration](./getting-started/configuration.md)
 - [Usage](./guides/usage.md)
   - [Running Tests](./guides/detecting.md)
+  - [Interactive TUI](./guides/interactive-tui.md)
   - [Filter DSL](./guides/filter-dsl.md)
   - [Quarantine Management](./guides/quarantine.md)
   - [Exporting Results](./guides/exporting.md)

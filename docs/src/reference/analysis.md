@@ -73,16 +73,18 @@ Duration regression detection identifies tests whose execution time has signific
 
 ### How It Works
 
-1. Collect all historical run durations for a test (most recent first)
-2. Require at least `min_history_runs` data points (configured in `[detection.duration_regression]`)
-3. Compute the **mean** and **sample standard deviation** of all durations
-4. Compare the **latest** duration against the historical distribution:
+1. Collect all run durations for a test (most recent first)
+2. Require at least `min_history_runs` total data points
+3. Separate the **latest** run from **historical** runs
+4. Compute the **mean** and **sample standard deviation** of historical durations only (the latest run is excluded to avoid polluting the baseline with the spike being measured)
+5. Apply a standard deviation floor of 1% of the mean (handles identical-duration histories where raw std\_dev is zero)
+6. Compute the z-score:
 
 ```
-deviation_factor = (latest_duration - mean) / standard_deviation
+deviation = (latest_duration - historical_mean) / effective_std_dev
 ```
 
-5. If `deviation_factor > threshold`, a regression is reported
+7. If `deviation > threshold`, a regression is reported with the actual slowdown ratio (`latest / mean`)
 
 ### Configuration
 
@@ -107,18 +109,26 @@ Two threshold variants are available:
 
 ### Output
 
-When a regression is detected, the output includes:
+When a regression is detected, the CLI displays:
+
+```
+  SLOW tests::my_test — 500ms (mean: 100ms, 5.0x)
+```
+
+The `DurationRegression` struct contains:
 
 | Field | Description |
 |-------|-------------|
 | `test_name` | Fully qualified name of the affected test |
 | `current_ms` | Duration of the latest run in milliseconds |
-| `mean_ms` | Historical mean duration in milliseconds |
+| `mean_ms` | Historical mean duration in milliseconds (excludes latest) |
 | `std_dev_ms` | Standard deviation of historical durations |
-| `deviation_factor` | How many standard deviations above the mean |
+| `deviation_factor` | How many standard deviations above the historical mean |
+
+The display shows the actual slowdown ratio (`current_ms / mean_ms`) rather than the z-score.
 
 ### Edge Cases
 
-- If the standard deviation is effectively zero (all durations identical), no regression is reported regardless of the latest duration
-- If fewer than `min_history_runs` runs exist, no regression check is performed
-- The latest run (index 0) is included in the mean/stddev calculation along with historical runs
+- If the effective standard deviation is near zero after flooring, no regression is reported
+- If fewer than `min_history_runs` total runs exist, no regression check is performed
+- If only one historical run exists (after separating the latest), the mean is that single value and the floor applies

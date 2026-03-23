@@ -12,14 +12,19 @@
 | `quarantine` | Manage test quarantine (list, add, remove) |
 | `ci` | Generate CI workflow files |
 
+## Interactive Mode
+
+By default, `test`, `status`, and `history` launch an [interactive TUI](./interactive-tui.md) with sortable tables, category filtering, and detail drill-down. Pass `--non-interactive` (or `-N`) to use plain text output instead -- useful for CI, scripts, or piped output.
+
 ## Global Options
 
 These options apply to all subcommands:
 
 ```
---project-dir <PATH>   Project root directory (default: .)
---output <FORMAT>      Output format: console or json (default: console)
---verbose, -v          Verbose output during detection
+--project-dir <PATH>       Project root directory (default: .)
+--output <FORMAT>          Output format: console or json (default: console)
+--non-interactive, -N      Disable TUI, use plain text output
+--verbose, -v              Verbose output during detection
 ```
 
 ## Typical Workflow
