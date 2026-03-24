@@ -49,7 +49,7 @@ src/
     schema.rs          SQL migration definitions
   tui/
     mod.rs             TUI entry points, event loop, terminal guard, signal handlers
-    app.rs             Application state (ScoresApp, HistoryApp, Cursor, SortField)
+    app.rs             Application state (ScoresApp, HistoryApp, TableState, SortField)
     input.rs           Key event mapping to actions
     render.rs          Ratatui widget rendering (scores table, detail overlay, history)
   types/

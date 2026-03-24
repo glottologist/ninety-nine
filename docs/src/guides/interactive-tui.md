@@ -4,19 +4,22 @@
 
 ## Scores View
 
-The scores view is the main screen after running `test`, or when running `status` without a test name argument.
+The scores view is the main screen after running `test`, or when running `status` without a test name argument. It uses bordered panels, a scrollbar, and colour-coded categories.
 
 ```
-cargo ninety-nine | 42/42 tests
+┌ Flaky Test Report ───────────────────────────────────────────┐
+│ cargo ninety-nine | 42/42 tests shown                        │
+└──────────────────────────────────────────────────────────────┘
 Filter: All | Sort: P(flaky) (desc)
-+--------------------------------+------+-------+---------+----------+----------+
-| Test                           | Runs | Pass% | P(flaky)| Category |Confidence|
-+--------------------------------+------+-------+---------+----------+----------+
-| tests::network::retry_timeout  |   20 | 75.0% |   0.250 | Frequent |     0.89 |
-| tests::db::concurrent_writes   |   20 | 85.0% |   0.150 | Moderate |     0.92 |
-| tests::parser::edge_cases      |   20 | 95.0% |   0.050 | Occasional|    0.97 |
-| tests::math::addition          |   20 |100.0% |   0.010 | Stable   |     0.99 |
-+--------------------------------+------+-------+---------+----------+----------+
+┌ Tests ──────────────────────────────────────────────────────┐^
+│ Test                           Runs  Pass%  P(flaky) Cat.   ││
+│                                                              ││
+│ tests::network::retry_timeout    20  75.0%    0.250  Freq   ││
+│ tests::db::concurrent_writes     20  85.0%    0.150  Mod    ││
+│ tests::parser::edge_cases        20  95.0%    0.050  Occ    │█
+│ tests::math::addition            20 100.0%    0.010  Stab   ││
+│                                                              ││
+└──────────────────────────────────────────────────────────────┘v
 j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
 ```
 
@@ -35,15 +38,19 @@ j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
 
 ### Sorting
 
-Press `s` to cycle through sort fields. Press `r` to toggle ascending/descending. The current sort field and direction are shown in the filter bar.
+Press `s` to cycle through sort fields. Press `r` to toggle ascending/descending. The current sort field and direction are shown in the orange filter bar below the header.
 
 ### Filtering
 
 Press `f` to cycle through category filters. When a filter is active, only tests in that category are shown. The count in the header updates to reflect the filtered set.
 
+### Scrollbar
+
+A vertical scrollbar appears on the right edge of the content panel. The scrollbar tracks the current selection position within the full list. The table viewport automatically follows the selected row, so scrolling through large lists works without manual page management.
+
 ## Detail View
 
-Press Enter on a test to open its detail overlay, showing:
+Press Enter on a test to open its detail overlay with a cyan border, showing:
 
 - **Score summary** -- category, P(flaky), confidence, pass/fail rates, total runs
 - **Bayesian parameters** -- alpha, beta, posterior mean, credible interval
@@ -55,20 +62,35 @@ Press Enter, `q`, or Esc to return to the scores list.
 
 ## History View
 
-The history view shows past detection sessions:
+The history view shows past detection sessions with the same bordered-panel layout:
 
 ```
-cargo ninety-nine | 5 sessions
-+--------------------+------+------+-----------------+----------+
-| Date               | Tests| Flaky| Branch          | Commit   |
-+--------------------+------+------+-----------------+----------+
-| 2026-03-23 14:30   |   42 |    3 | main            | 9e9bce5  |
-| 2026-03-22 09:15   |   42 |    2 | feature/tui     | a9f0068  |
-+--------------------+------+------+-----------------+----------+
-j/k:nav  q:quit
+┌ Session History ─────────────────────────────────────────────┐
+│ cargo ninety-nine | 13 sessions                              │
+└──────────────────────────────────────────────────────────────┘
+┌ Sessions ───────────────────────────────────────────────────┐^
+│ Date              Tests  Flaky  Branch           Commit     ││
+│                                                              ││
+│ 2026-03-23 14:39   1803      0  jason/add_tests  92d65c74   │█
+│ 2026-03-23 11:34   1803      0  jason/add_tests  92d65c74   ││
+│ 2026-03-18 18:39    105      0  main             5ee51231   ││
+└──────────────────────────────────────────────────────────────┘v
+j/k:nav  Enter:detail  q:quit
 ```
 
-Navigate with `j`/`k` or arrow keys. Press `q` or Esc to quit.
+Navigate with `j`/`k` or arrow keys. Press Enter to view the test runs from that session.
+
+### Session Detail
+
+Pressing Enter on a session opens a scrollable overlay showing all test runs from that session:
+
+- **Title bar** -- session date, branch, and commit hash
+- **Summary line** -- total tests, passed count, failed count
+- **Test table** -- test name, outcome (colour-coded PASS/FAIL/TIME/PANC/SKIP), duration, retry count
+- **Scrollbar** -- right edge of the test table with `^`/`v` markers, tracks the selected row
+- **Row highlighting** -- currently selected row is highlighted
+
+Navigate within the detail overlay using `j`/`k` or arrow keys. Press Enter, `q`, or Esc to return to the session list.
 
 ## Disabling the TUI
 
@@ -81,6 +103,17 @@ cargo ninety-nine test -n 10 --non-interactive
 ```
 
 This produces the same text output as previous versions.
+
+## Visual Style
+
+The TUI follows a panel-based layout inspired by tools like tOwl:
+
+- **Header panel** -- bordered with cyan, contains the tool name and summary statistics
+- **Filter bar** -- orange text showing current filter and sort state
+- **Content panel** -- bordered with dark grey, contains the data table with a title
+- **Scrollbar** -- right edge of content panel with `^`/`v` end markers
+- **Footer** -- keybinding hints with bold key names
+- **Category colours** -- Stable (green), Occasional (yellow), Moderate (red), Frequent (bold red), Critical (white on red)
 
 ## Terminal Requirements
 

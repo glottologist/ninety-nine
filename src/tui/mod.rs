@@ -23,7 +23,7 @@ use crate::error::NinetyNineError;
 use crate::storage::{Storage, StorageBackend};
 use crate::types::{FlakinessScore, RunSession};
 
-use self::app::{AppMode, DetailData, HistoryApp, ScoresApp};
+use self::app::{AppMode, DetailData, HistoryApp, ScoresApp, SessionDetail};
 use self::input::{Action, handle_key_event};
 
 struct TerminalGuard {
@@ -108,7 +108,7 @@ fn scores_loop(
     let mut app = ScoresApp::new(scores, confidence_threshold);
 
     loop {
-        guard.terminal.draw(|f| render::draw_scores(f, &app))?;
+        guard.terminal.draw(|f| render::draw_scores(f, &mut app))?;
 
         if shutdown.load(Ordering::Relaxed) {
             break;
@@ -145,19 +145,27 @@ fn scores_loop(
 ///
 /// # Errors
 ///
-/// Returns an error if terminal setup fails.
-pub fn run_history(sessions: Vec<RunSession>) -> Result<(), NinetyNineError> {
-    tokio::task::block_in_place(|| history_loop(sessions))
+/// Returns an error if terminal setup fails or a storage query fails.
+pub fn run_history(
+    sessions: Vec<RunSession>,
+    storage: &StorageBackend,
+) -> Result<(), NinetyNineError> {
+    let handle = Handle::current();
+    tokio::task::block_in_place(|| history_loop(sessions, storage, &handle))
 }
 
-fn history_loop(sessions: Vec<RunSession>) -> Result<(), NinetyNineError> {
+fn history_loop(
+    sessions: Vec<RunSession>,
+    storage: &StorageBackend,
+    handle: &Handle,
+) -> Result<(), NinetyNineError> {
     install_panic_hook();
     let shutdown = install_signal_handlers()?;
     let mut guard = TerminalGuard::new()?;
     let mut app = HistoryApp::new(sessions);
 
     loop {
-        guard.terminal.draw(|f| render::draw_history(f, &app))?;
+        guard.terminal.draw(|f| render::draw_history(f, &mut app))?;
 
         if shutdown.load(Ordering::Relaxed) {
             break;
@@ -165,9 +173,24 @@ fn history_loop(sessions: Vec<RunSession>) -> Result<(), NinetyNineError> {
 
         if poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
-                match handle_key_event(key, &AppMode::Browse) {
-                    Action::MoveUp => app.move_up(),
-                    Action::MoveDown => app.move_down(),
+                match handle_key_event(key, &app.mode) {
+                    Action::MoveUp => match app.mode {
+                        AppMode::Browse => app.move_up(),
+                        AppMode::Detail(_) => app.detail_move_up(),
+                    },
+                    Action::MoveDown => match app.mode {
+                        AppMode::Browse => app.move_down(),
+                        AppMode::Detail(_) => app.detail_move_down(),
+                    },
+                    Action::Enter => {
+                        if let Some(session) = app.selected_session() {
+                            let session_id = session.id;
+                            let runs = handle
+                                .block_on(async { storage.get_session_runs(&session_id).await })?;
+                            app.enter_detail(SessionDetail::new(runs));
+                        }
+                    }
+                    Action::Back => app.exit_detail(),
                     Action::Quit => break,
                     _ => {}
                 }

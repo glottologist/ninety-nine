@@ -181,17 +181,20 @@
                         <h1 id="interactive-tui"><a class="header" href="#interactive-tui">Interactive TUI</a></h1>
 <p><code>cargo ninety-nine</code> includes a terminal user interface for browsing flakiness scores and session history. The TUI launches automatically when running <code>status</code>, <code>history</code>, or <code>test</code> in a terminal. Pass <code>--non-interactive</code> (or <code>-N</code>) to disable it.</p>
 <h2 id="scores-view"><a class="header" href="#scores-view">Scores View</a></h2>
-<p>The scores view is the main screen after running <code>test</code>, or when running <code>status</code> without a test name argument.</p>
-<pre><code>cargo ninety-nine | 42/42 tests
+<p>The scores view is the main screen after running <code>test</code>, or when running <code>status</code> without a test name argument. It uses bordered panels, a scrollbar, and colour-coded categories.</p>
+<pre><code>┌ Flaky Test Report ───────────────────────────────────────────┐
+│ cargo ninety-nine | 42/42 tests shown                        │
+└──────────────────────────────────────────────────────────────┘
 Filter: All | Sort: P(flaky) (desc)
-+--------------------------------+------+-------+---------+----------+----------+
-| Test                           | Runs | Pass% | P(flaky)| Category |Confidence|
-+--------------------------------+------+-------+---------+----------+----------+
-| tests::network::retry_timeout  |   20 | 75.0% |   0.250 | Frequent |     0.89 |
-| tests::db::concurrent_writes   |   20 | 85.0% |   0.150 | Moderate |     0.92 |
-| tests::parser::edge_cases      |   20 | 95.0% |   0.050 | Occasional|    0.97 |
-| tests::math::addition          |   20 |100.0% |   0.010 | Stable   |     0.99 |
-+--------------------------------+------+-------+---------+----------+----------+
+┌ Tests ──────────────────────────────────────────────────────┐^
+│ Test                           Runs  Pass%  P(flaky) Cat.   ││
+│                                                              ││
+│ tests::network::retry_timeout    20  75.0%    0.250  Freq   ││
+│ tests::db::concurrent_writes     20  85.0%    0.150  Mod    ││
+│ tests::parser::edge_cases        20  95.0%    0.050  Occ    │█
+│ tests::math::addition            20 100.0%    0.010  Stab   ││
+│                                                              ││
+└──────────────────────────────────────────────────────────────┘v
 j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
 </code></pre>
 <h3 id="keybindings"><a class="header" href="#keybindings">Keybindings</a></h3>
@@ -207,11 +210,13 @@ j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
 </tbody></table>
 </div>
 <h3 id="sorting"><a class="header" href="#sorting">Sorting</a></h3>
-<p>Press <code>s</code> to cycle through sort fields. Press <code>r</code> to toggle ascending/descending. The current sort field and direction are shown in the filter bar.</p>
+<p>Press <code>s</code> to cycle through sort fields. Press <code>r</code> to toggle ascending/descending. The current sort field and direction are shown in the orange filter bar below the header.</p>
 <h3 id="filtering"><a class="header" href="#filtering">Filtering</a></h3>
 <p>Press <code>f</code> to cycle through category filters. When a filter is active, only tests in that category are shown. The count in the header updates to reflect the filtered set.</p>
+<h3 id="scrollbar"><a class="header" href="#scrollbar">Scrollbar</a></h3>
+<p>A vertical scrollbar appears on the right edge of the content panel. The scrollbar tracks the current selection position within the full list. The table viewport automatically follows the selected row, so scrolling through large lists works without manual page management.</p>
 <h2 id="detail-view"><a class="header" href="#detail-view">Detail View</a></h2>
-<p>Press Enter on a test to open its detail overlay, showing:</p>
+<p>Press Enter on a test to open its detail overlay with a cyan border, showing:</p>
 <ul>
 <li><strong>Score summary</strong> -- category, P(flaky), confidence, pass/fail rates, total runs</li>
 <li><strong>Bayesian parameters</strong> -- alpha, beta, posterior mean, credible interval</li>
@@ -221,17 +226,28 @@ j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit
 </ul>
 <p>Press Enter, <code>q</code>, or Esc to return to the scores list.</p>
 <h2 id="history-view"><a class="header" href="#history-view">History View</a></h2>
-<p>The history view shows past detection sessions:</p>
-<pre><code>cargo ninety-nine | 5 sessions
-+--------------------+------+------+-----------------+----------+
-| Date               | Tests| Flaky| Branch          | Commit   |
-+--------------------+------+------+-----------------+----------+
-| 2026-03-23 14:30   |   42 |    3 | main            | 9e9bce5  |
-| 2026-03-22 09:15   |   42 |    2 | feature/tui     | a9f0068  |
-+--------------------+------+------+-----------------+----------+
-j/k:nav  q:quit
+<p>The history view shows past detection sessions with the same bordered-panel layout:</p>
+<pre><code>┌ Session History ─────────────────────────────────────────────┐
+│ cargo ninety-nine | 13 sessions                              │
+└──────────────────────────────────────────────────────────────┘
+┌ Sessions ───────────────────────────────────────────────────┐^
+│ Date              Tests  Flaky  Branch           Commit     ││
+│                                                              ││
+│ 2026-03-23 14:39   1803      0  jason/add_tests  92d65c74   │█
+│ 2026-03-23 11:34   1803      0  jason/add_tests  92d65c74   ││
+│ 2026-03-18 18:39    105      0  main             5ee51231   ││
+└──────────────────────────────────────────────────────────────┘v
+j/k:nav  Enter:detail  q:quit
 </code></pre>
-<p>Navigate with <code>j</code>/<code>k</code> or arrow keys. Press <code>q</code> or Esc to quit.</p>
+<p>Navigate with <code>j</code>/<code>k</code> or arrow keys. Press Enter to view the test runs from that session.</p>
+<h3 id="session-detail"><a class="header" href="#session-detail">Session Detail</a></h3>
+<p>Pressing Enter on a session opens an overlay showing all test runs from that session:</p>
+<ul>
+<li><strong>Summary line</strong> -- total tests, passed count, failed count</li>
+<li><strong>Test table</strong> -- test name, outcome (colour-coded PASS/FAIL/TIME/PANC/SKIP), duration, retry count</li>
+<li><strong>Title bar</strong> -- session date, branch, and commit hash</li>
+</ul>
+<p>Press Enter, <code>q</code>, or Esc to return to the session list.</p>
 <h2 id="disabling-the-tui"><a class="header" href="#disabling-the-tui">Disabling the TUI</a></h2>
 <p>For CI pipelines, scripts, or piped output, use <code>--non-interactive</code>:</p>
 <pre><code class="language-bash">cargo ninety-nine status --non-interactive
@@ -239,6 +255,16 @@ cargo ninety-nine history --non-interactive
 cargo ninety-nine test -n 10 --non-interactive
 </code></pre>
 <p>This produces the same text output as previous versions.</p>
+<h2 id="visual-style"><a class="header" href="#visual-style">Visual Style</a></h2>
+<p>The TUI follows a panel-based layout inspired by tools like tOwl:</p>
+<ul>
+<li><strong>Header panel</strong> -- bordered with cyan, contains the tool name and summary statistics</li>
+<li><strong>Filter bar</strong> -- orange text showing current filter and sort state</li>
+<li><strong>Content panel</strong> -- bordered with dark grey, contains the data table with a title</li>
+<li><strong>Scrollbar</strong> -- right edge of content panel with <code>^</code>/<code>v</code> end markers</li>
+<li><strong>Footer</strong> -- keybinding hints with bold key names</li>
+<li><strong>Category colours</strong> -- Stable (green), Occasional (yellow), Moderate (red), Frequent (bold red), Critical (white on red)</li>
+</ul>
 <h2 id="terminal-requirements"><a class="header" href="#terminal-requirements">Terminal Requirements</a></h2>
 <p>The TUI uses the alternate screen buffer and raw mode via crossterm. It works in any terminal emulator that supports ANSI escape sequences. On Unix, SIGTERM and SIGHUP trigger graceful shutdown. On all platforms, the terminal state is restored on exit, including after panics.</p>
 <p>Minimum terminal size: 60 columns by 10 rows.</p>

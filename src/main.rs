@@ -258,7 +258,7 @@ async fn run_history(
     if non_interactive {
         print_session_report(&sessions, output_format);
     } else {
-        cargo_ninety_nine::tui::run_history(sessions)?;
+        cargo_ninety_nine::tui::run_history(sessions, storage)?;
     }
     Ok(())
 }

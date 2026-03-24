@@ -1,19 +1,22 @@
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Cell, Clear, Paragraph, Row, Table};
+use ratatui::widgets::{
+    Block, Cell, Clear, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
+};
 
-use crate::types::{FlakinessCategory, FlakinessScore, TestOutcome};
+use crate::types::{FlakinessCategory, FlakinessScore, RunSession, TestOutcome};
 
-use super::app::{AppMode, DetailData, HistoryApp, ScoresApp};
+use super::app::{AppMode, DetailData, HistoryApp, ScoresApp, SessionDetail};
 
 const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 const STYLE_MUTED: Style = Style::new().fg(Color::DarkGray);
 const STYLE_SELECTED: Style = Style::new()
     .bg(Color::DarkGray)
     .add_modifier(Modifier::BOLD);
+const STYLE_FILTER: Style = Style::new().fg(Color::Rgb(255, 165, 0));
 
-pub fn draw_scores(f: &mut Frame, app: &ScoresApp) {
+pub fn draw_scores(f: &mut Frame, app: &mut ScoresApp) {
     let chunks = Layout::vertical([
-        Constraint::Length(1),
+        Constraint::Length(3),
         Constraint::Length(1),
         Constraint::Min(5),
         Constraint::Length(1),
@@ -33,26 +36,45 @@ pub fn draw_scores(f: &mut Frame, app: &ScoresApp) {
 }
 
 fn draw_scores_header(f: &mut Frame, app: &ScoresApp, area: Rect) {
-    let text = format!(
-        "cargo ninety-nine | {}/{} tests",
+    let summary = format!(
+        " cargo ninety-nine | {}/{} tests shown",
         app.filtered.len(),
         app.scores.len()
     );
-    f.render_widget(Paragraph::new(text).style(STYLE_BOLD), area);
+    let block = Block::bordered()
+        .title(" Flaky Test Report ")
+        .title_alignment(Alignment::Left)
+        .border_style(Style::new().fg(Color::Cyan));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+    f.render_widget(Paragraph::new(summary), inner);
 }
 
 fn draw_filter_bar(f: &mut Frame, app: &ScoresApp, area: Rect) {
     let direction = if app.sort_ascending { "asc" } else { "desc" };
-    let text = format!(
-        "Filter: {} | Sort: {} ({})",
-        app.filter_label(),
-        app.sort_field.label(),
-        direction
-    );
-    f.render_widget(Paragraph::new(text).style(STYLE_MUTED), area);
+    let text = Line::from(vec![
+        Span::styled("Filter: ", STYLE_FILTER),
+        Span::styled(
+            app.filter_label(),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" | ", STYLE_MUTED),
+        Span::styled("Sort: ", STYLE_FILTER),
+        Span::styled(
+            format!("{} ({})", app.sort_field.label(), direction),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+    ]);
+    f.render_widget(Paragraph::new(text), area);
 }
 
-fn draw_scores_table(f: &mut Frame, app: &ScoresApp, area: Rect) {
+fn draw_scores_table(f: &mut Frame, app: &mut ScoresApp, area: Rect) {
+    let block = Block::bordered()
+        .title(" Tests ")
+        .title_alignment(Alignment::Left)
+        .border_style(Style::new().fg(Color::DarkGray));
+    let table_area = block.inner(area);
+
     let header = Row::new(vec![
         "Test",
         "Runs",
@@ -64,27 +86,23 @@ fn draw_scores_table(f: &mut Frame, app: &ScoresApp, area: Rect) {
     .style(STYLE_BOLD)
     .bottom_margin(1);
 
-    let cursor = app.cursor.position();
     let threshold = app.confidence_threshold;
     let rows: Vec<Row> = app
         .filtered
         .iter()
-        .enumerate()
-        .map(|(i, &idx)| {
+        .map(|&idx| {
             let s = &app.scores[idx];
             let effective = s.effective_score(threshold);
             let cat = FlakinessCategory::from_score(effective);
 
-            let row = Row::new(vec![
+            Row::new(vec![
                 Cell::from(s.test_name.as_ref()),
                 Cell::from(s.total_runs.to_string()),
                 Cell::from(format!("{:.1}%", s.pass_rate * 100.0)),
                 Cell::from(format!("{effective:.3}")),
                 Cell::from(cat.label()).style(category_style(cat)),
                 Cell::from(format!("{:.2}", s.confidence)),
-            ]);
-
-            highlight_row(row, i == cursor)
+            ])
         })
         .collect();
 
@@ -97,24 +115,41 @@ fn draw_scores_table(f: &mut Frame, app: &ScoresApp, area: Rect) {
         Constraint::Length(10),
     ];
 
-    let table = Table::new(rows, widths).header(header);
-    f.render_widget(table, area);
-}
+    let row_count = rows.len();
+    let table = Table::new(rows, widths)
+        .header(header)
+        .row_highlight_style(STYLE_SELECTED)
+        .block(block);
 
-fn draw_scores_footer(f: &mut Frame, area: Rect) {
-    f.render_widget(
-        Paragraph::new("j/k:nav  s:sort  r:reverse  f:filter  Enter:detail  q:quit")
-            .style(STYLE_MUTED),
-        area,
+    f.render_stateful_widget(table, area, &mut app.table_state);
+
+    let mut scrollbar_state =
+        ScrollbarState::new(row_count).position(app.table_state.selected().unwrap_or(0));
+    f.render_stateful_widget(
+        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(Some("^"))
+            .end_symbol(Some("v")),
+        table_area,
+        &mut scrollbar_state,
     );
 }
 
-fn highlight_row(row: Row<'_>, is_selected: bool) -> Row<'_> {
-    if is_selected {
-        row.style(STYLE_SELECTED)
-    } else {
-        row
-    }
+fn draw_scores_footer(f: &mut Frame, area: Rect) {
+    let keys = Line::from(vec![
+        Span::styled("j/k", STYLE_BOLD),
+        Span::styled(":nav  ", STYLE_MUTED),
+        Span::styled("s", STYLE_BOLD),
+        Span::styled(":sort  ", STYLE_MUTED),
+        Span::styled("r", STYLE_BOLD),
+        Span::styled(":reverse  ", STYLE_MUTED),
+        Span::styled("f", STYLE_BOLD),
+        Span::styled(":filter  ", STYLE_MUTED),
+        Span::styled("Enter", STYLE_BOLD),
+        Span::styled(":detail  ", STYLE_MUTED),
+        Span::styled("q", STYLE_BOLD),
+        Span::styled(":quit", STYLE_MUTED),
+    ]);
+    f.render_widget(Paragraph::new(keys), area);
 }
 
 const fn category_style(cat: FlakinessCategory) -> Style {
@@ -141,7 +176,8 @@ fn draw_detail_overlay(
 
     let block = Block::bordered()
         .title(format!(" {} ", score.test_name))
-        .title_alignment(Alignment::Center);
+        .title_alignment(Alignment::Center)
+        .border_style(Style::new().fg(Color::Cyan));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -223,13 +259,7 @@ fn append_recent_runs(lines: &mut Vec<Line<'_>>, detail: &DetailData) {
     if !detail.runs.is_empty() {
         lines.push(Line::from("Recent Runs:").style(STYLE_BOLD));
         for run in detail.runs.iter().take(10) {
-            let symbol = match run.outcome {
-                TestOutcome::Passed => "PASS",
-                TestOutcome::Failed => "FAIL",
-                TestOutcome::Ignored => "SKIP",
-                TestOutcome::Timeout => "TIME",
-                TestOutcome::Panic => "PANC",
-            };
+            let (symbol, _) = outcome_label_style(run.outcome);
             lines.push(Line::from(format!(
                 "  [{}] {:>6.1}ms  {}",
                 symbol,
@@ -255,36 +285,49 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn draw_history(f: &mut Frame, app: &HistoryApp) {
+pub fn draw_history(f: &mut Frame, app: &mut HistoryApp) {
     let chunks = Layout::vertical([
-        Constraint::Length(1),
+        Constraint::Length(3),
         Constraint::Min(5),
         Constraint::Length(1),
     ])
     .split(f.area());
 
-    let header_text = format!("cargo ninety-nine | {} sessions", app.sessions.len());
-    f.render_widget(Paragraph::new(header_text).style(STYLE_BOLD), chunks[0]);
+    let header_block = Block::bordered()
+        .title(" Session History ")
+        .title_alignment(Alignment::Left)
+        .border_style(Style::new().fg(Color::Cyan));
+    let header_inner = header_block.inner(chunks[0]);
+    f.render_widget(header_block, chunks[0]);
+    f.render_widget(
+        Paragraph::new(format!(
+            " cargo ninety-nine | {} sessions",
+            app.sessions.len()
+        )),
+        header_inner,
+    );
+
+    let content_block = Block::bordered()
+        .title(" Sessions ")
+        .title_alignment(Alignment::Left)
+        .border_style(Style::new().fg(Color::DarkGray));
+    let table_area = content_block.inner(chunks[1]);
 
     let header = Row::new(vec!["Date", "Tests", "Flaky", "Branch", "Commit"])
         .style(STYLE_BOLD)
         .bottom_margin(1);
 
-    let cursor = app.cursor.position();
     let rows: Vec<Row> = app
         .sessions
         .iter()
-        .enumerate()
-        .map(|(i, s)| {
-            let row = Row::new(vec![
+        .map(|s| {
+            Row::new(vec![
                 Cell::from(s.started_at.format("%Y-%m-%d %H:%M").to_string()),
                 Cell::from(s.test_count.to_string()),
                 Cell::from(s.flaky_count.to_string()),
                 Cell::from(s.branch.as_str()),
                 Cell::from(s.commit_hash.get(..8).unwrap_or(&s.commit_hash)),
-            ]);
-
-            highlight_row(row, i == cursor)
+            ])
         })
         .collect();
 
@@ -296,13 +339,154 @@ pub fn draw_history(f: &mut Frame, app: &HistoryApp) {
         Constraint::Length(10),
     ];
 
-    let table = Table::new(rows, widths).header(header);
-    f.render_widget(table, chunks[1]);
+    let row_count = rows.len();
+    let table = Table::new(rows, widths)
+        .header(header)
+        .row_highlight_style(STYLE_SELECTED)
+        .block(content_block);
 
-    f.render_widget(
-        Paragraph::new("j/k:nav  q:quit").style(STYLE_MUTED),
-        chunks[2],
+    f.render_stateful_widget(table, chunks[1], &mut app.table_state);
+
+    let mut scrollbar_state =
+        ScrollbarState::new(row_count).position(app.table_state.selected().unwrap_or(0));
+    f.render_stateful_widget(
+        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(Some("^"))
+            .end_symbol(Some("v")),
+        table_area,
+        &mut scrollbar_state,
     );
+
+    let keys = Line::from(vec![
+        Span::styled("j/k", STYLE_BOLD),
+        Span::styled(":nav  ", STYLE_MUTED),
+        Span::styled("Enter", STYLE_BOLD),
+        Span::styled(":detail  ", STYLE_MUTED),
+        Span::styled("q", STYLE_BOLD),
+        Span::styled(":quit", STYLE_MUTED),
+    ]);
+    f.render_widget(Paragraph::new(keys), chunks[2]);
+
+    if let AppMode::Detail(_) = app.mode {
+        if let Some(session) = app.selected_session().cloned() {
+            if let Some(detail) = &mut app.detail {
+                draw_session_detail_overlay(f, &session, detail);
+            }
+        }
+    }
+}
+
+fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut SessionDetail) {
+    let area = centered_rect(80, 85, f.area());
+    f.render_widget(Clear, area);
+
+    let commit_short = session.commit_hash.get(..8).unwrap_or(&session.commit_hash);
+    let title = format!(
+        " {} | {} | {} ",
+        session.started_at.format("%Y-%m-%d %H:%M"),
+        session.branch,
+        commit_short,
+    );
+    let block = Block::bordered()
+        .title(title)
+        .title_alignment(Alignment::Center)
+        .border_style(Style::new().fg(Color::Cyan));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    if detail.runs.is_empty() {
+        f.render_widget(
+            Paragraph::new("No test runs in this session.").style(STYLE_MUTED),
+            inner,
+        );
+        return;
+    }
+
+    let header = Row::new(vec!["Test", "Outcome", "Duration", "Retries"])
+        .style(STYLE_BOLD)
+        .bottom_margin(1);
+
+    let rows: Vec<Row> = detail
+        .runs
+        .iter()
+        .map(|run| {
+            let (label, style) = outcome_label_style(run.outcome);
+            Row::new(vec![
+                Cell::from(run.test_name.as_ref()),
+                Cell::from(label).style(style),
+                Cell::from(format!("{:.0}ms", run.duration.as_secs_f64() * 1000.0)),
+                Cell::from(run.retry_count.to_string()),
+            ])
+        })
+        .collect();
+
+    let widths = [
+        Constraint::Min(30),
+        Constraint::Length(8),
+        Constraint::Length(10),
+        Constraint::Length(8),
+    ];
+
+    let summary = format!(
+        "{} tests | {} passed | {} failed",
+        detail.runs.len(),
+        detail
+            .runs
+            .iter()
+            .filter(|r| r.outcome == TestOutcome::Passed)
+            .count(),
+        detail
+            .runs
+            .iter()
+            .filter(|r| r.outcome != TestOutcome::Passed && r.outcome != TestOutcome::Ignored)
+            .count(),
+    );
+
+    let chunks = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Min(3),
+        Constraint::Length(1),
+    ])
+    .split(inner);
+
+    f.render_widget(Paragraph::new(summary).style(STYLE_MUTED), chunks[0]);
+
+    let row_count = rows.len();
+    let table = Table::new(rows, widths)
+        .header(header)
+        .row_highlight_style(STYLE_SELECTED);
+    f.render_stateful_widget(table, chunks[1], &mut detail.table_state);
+
+    let mut scrollbar_state =
+        ScrollbarState::new(row_count).position(detail.table_state.selected().unwrap_or(0));
+    f.render_stateful_widget(
+        Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(Some("^"))
+            .end_symbol(Some("v")),
+        chunks[1],
+        &mut scrollbar_state,
+    );
+
+    let keys = Line::from(vec![
+        Span::styled("j/k", STYLE_BOLD),
+        Span::styled(":nav  ", STYLE_MUTED),
+        Span::styled("Enter/q/Esc", STYLE_BOLD),
+        Span::styled(":back", STYLE_MUTED),
+    ]);
+    f.render_widget(Paragraph::new(keys), chunks[2]);
+}
+
+const fn outcome_label_style(outcome: TestOutcome) -> (&'static str, Style) {
+    match outcome {
+        TestOutcome::Passed => ("PASS", Style::new().fg(Color::Green)),
+        TestOutcome::Failed => ("FAIL", Style::new().fg(Color::Red)),
+        TestOutcome::Timeout => ("TIME", Style::new().fg(Color::Yellow)),
+        TestOutcome::Panic => (
+            "PANC",
+            Style::new().fg(Color::Red).add_modifier(Modifier::BOLD),
+        ),
+        TestOutcome::Ignored => ("SKIP", Style::new().fg(Color::DarkGray)),
+    }
 }
 
 #[cfg(test)]
@@ -320,8 +504,8 @@ mod tests {
     fn draw_scores_does_not_panic(#[case] scores: Vec<FlakinessScore>) {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        let app = super::super::app::ScoresApp::new(scores, 0.95);
-        terminal.draw(|f| draw_scores(f, &app)).unwrap();
+        let mut app = super::super::app::ScoresApp::new(scores, 0.95);
+        terminal.draw(|f| draw_scores(f, &mut app)).unwrap();
     }
 
     #[test]
@@ -336,7 +520,7 @@ mod tests {
             patterns: Vec::new(),
         };
         app.enter_detail(detail);
-        terminal.draw(|f| draw_scores(f, &app)).unwrap();
+        terminal.draw(|f| draw_scores(f, &mut app)).unwrap();
     }
 
     #[rstest]
@@ -348,7 +532,7 @@ mod tests {
     fn draw_history_does_not_panic(#[case] sessions: Vec<crate::types::RunSession>) {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        let app = super::super::app::HistoryApp::new(sessions);
-        terminal.draw(|f| draw_history(f, &app)).unwrap();
+        let mut app = super::super::app::HistoryApp::new(sessions);
+        terminal.draw(|f| draw_history(f, &mut app)).unwrap();
     }
 }

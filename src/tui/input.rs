@@ -37,6 +37,8 @@ pub fn handle_key_event(key: KeyEvent, mode: &AppMode) -> Action {
             _ => Action::None,
         },
         AppMode::Detail(_) => match key.code {
+            KeyCode::Char('k') | KeyCode::Up => Action::MoveUp,
+            KeyCode::Char('j') | KeyCode::Down => Action::MoveDown,
             KeyCode::Char('q') | KeyCode::Esc | KeyCode::Enter => Action::Back,
             _ => Action::None,
         },
@@ -96,7 +98,11 @@ mod tests {
     #[case(key(KeyCode::Char('q')), Action::Back)]
     #[case(key(KeyCode::Esc), Action::Back)]
     #[case(key(KeyCode::Enter), Action::Back)]
-    #[case(key(KeyCode::Char('j')), Action::None)]
+    #[case(key(KeyCode::Char('j')), Action::MoveDown)]
+    #[case(key(KeyCode::Char('k')), Action::MoveUp)]
+    #[case(key(KeyCode::Down), Action::MoveDown)]
+    #[case(key(KeyCode::Up), Action::MoveUp)]
+    #[case(key(KeyCode::Char('x')), Action::None)]
     fn detail_mode_keys(#[case] event: KeyEvent, #[case] expected: Action) {
         assert_eq!(handle_key_event(event, &AppMode::Detail(0)), expected);
     }

@@ -118,6 +118,13 @@ pub trait Storage: Send + Sync {
     /// Returns a storage error if the query fails.
     async fn is_quarantined(&self, test_name: &str) -> Result<bool, NinetyNineError>;
 
+    /// Retrieves test runs belonging to a specific session.
+    ///
+    /// # Errors
+    ///
+    /// Returns a storage error if the query fails.
+    async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError>;
+
     /// Deletes test runs older than the specified number of days.
     ///
     /// # Errors

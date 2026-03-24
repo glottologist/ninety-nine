@@ -18,6 +18,7 @@ pub trait Storage: Send + Sync {
     async fn unquarantine_test(&self, test_name: &str) -> Result<(), NinetyNineError>;
     async fn get_quarantined_tests(&self) -> Result<Vec<QuarantineEntry>, NinetyNineError>;
     async fn is_quarantined(&self, test_name: &str) -> Result<bool, NinetyNineError>;
+    async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError>;
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError>;
 }
 ```
@@ -40,6 +41,7 @@ All methods are async to support both synchronous (SQLite via `spawn_blocking`) 
 | `unquarantine_test` | Removes a test from quarantine |
 | `get_quarantined_tests` | Lists all quarantined tests |
 | `is_quarantined` | Checks if a specific test is quarantined |
+| `get_session_runs` | Retrieves all test runs for a given session, ordered by test name |
 | `purge_older_than` | Deletes test runs older than N days, returns count deleted |
 
 ## `StorageBackend` Enum

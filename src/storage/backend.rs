@@ -88,6 +88,10 @@ impl Storage for StorageBackend {
         dispatch!(self, is_quarantined, test_name)
     }
 
+    async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError> {
+        dispatch!(self, get_session_runs, session_id)
+    }
+
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError> {
         dispatch!(self, purge_older_than, days)
     }

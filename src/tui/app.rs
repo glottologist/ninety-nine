@@ -1,3 +1,5 @@
+use ratatui::widgets::TableState;
+
 use crate::types::{
     FailurePattern, FlakinessCategory, FlakinessScore, RunSession, TestRun, TrendSummary,
 };
@@ -47,43 +49,6 @@ pub struct DetailData {
     pub patterns: Vec<FailurePattern>,
 }
 
-#[derive(Debug)]
-pub struct Cursor {
-    position: usize,
-}
-
-impl Default for Cursor {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl Cursor {
-    #[must_use]
-    pub const fn new() -> Self {
-        Self { position: 0 }
-    }
-
-    #[must_use]
-    pub const fn position(&self) -> usize {
-        self.position
-    }
-
-    pub const fn move_up(&mut self) {
-        self.position = self.position.saturating_sub(1);
-    }
-
-    pub fn move_down(&mut self, item_count: usize) {
-        if item_count > 0 {
-            self.position = self.position.saturating_add(1).min(item_count - 1);
-        }
-    }
-
-    pub const fn reset(&mut self) {
-        self.position = 0;
-    }
-}
-
 const fn category_ordinal(cat: FlakinessCategory) -> u8 {
     match cat {
         FlakinessCategory::Stable => 0,
@@ -97,7 +62,7 @@ const fn category_ordinal(cat: FlakinessCategory) -> u8 {
 pub struct ScoresApp {
     pub scores: Vec<FlakinessScore>,
     pub filtered: Vec<usize>,
-    pub cursor: Cursor,
+    pub table_state: TableState,
     pub sort_field: SortField,
     pub sort_ascending: bool,
     pub filter_category: Option<FlakinessCategory>,
@@ -110,10 +75,11 @@ impl ScoresApp {
     #[must_use]
     pub fn new(scores: Vec<FlakinessScore>, confidence_threshold: f64) -> Self {
         let filtered: Vec<usize> = (0..scores.len()).collect();
+        let initial_selected = if scores.is_empty() { None } else { Some(0) };
         let mut app = Self {
             scores,
             filtered,
-            cursor: Cursor::new(),
+            table_state: TableState::new().with_selected(initial_selected),
             sort_field: SortField::PFlaky,
             sort_ascending: false,
             filter_category: None,
@@ -125,12 +91,27 @@ impl ScoresApp {
         app
     }
 
-    pub const fn move_up(&mut self) {
-        self.cursor.move_up();
+    pub fn move_up(&mut self) {
+        if !self.filtered.is_empty() {
+            self.table_state.select_previous();
+            self.clamp_selection();
+        }
     }
 
     pub fn move_down(&mut self) {
-        self.cursor.move_down(self.filtered.len());
+        if !self.filtered.is_empty() {
+            self.table_state.select_next();
+            self.clamp_selection();
+        }
+    }
+
+    fn clamp_selection(&mut self) {
+        if let Some(sel) = self.table_state.selected() {
+            let max = self.filtered.len().saturating_sub(1);
+            if sel > max {
+                self.table_state.select(Some(max));
+            }
+        }
     }
 
     pub fn cycle_sort(&mut self) {
@@ -167,7 +148,12 @@ impl ScoresApp {
             })
             .collect();
         self.sort_filtered();
-        self.cursor.reset();
+        let sel = if self.filtered.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
+        self.table_state.select(sel);
     }
 
     pub fn sort_filtered(&mut self) {
@@ -201,14 +187,20 @@ impl ScoresApp {
 
     #[must_use]
     pub fn selected_score(&self) -> Option<&FlakinessScore> {
-        self.filtered
-            .get(self.cursor.position())
+        self.table_state
+            .selected()
+            .and_then(|i| self.filtered.get(i))
             .map(|&i| &self.scores[i])
+    }
+
+    #[must_use]
+    pub fn selected_index(&self) -> usize {
+        self.table_state.selected().unwrap_or(0)
     }
 
     pub fn enter_detail(&mut self, detail: DetailData) {
         self.detail = Some(detail);
-        self.mode = AppMode::Detail(self.cursor.position());
+        self.mode = AppMode::Detail(self.selected_index());
     }
 
     pub fn exit_detail(&mut self) {
@@ -225,26 +217,115 @@ impl ScoresApp {
     }
 }
 
+pub struct SessionDetail {
+    pub runs: Vec<TestRun>,
+    pub table_state: TableState,
+}
+
+impl SessionDetail {
+    #[must_use]
+    pub fn new(runs: Vec<TestRun>) -> Self {
+        let initial = if runs.is_empty() { None } else { Some(0) };
+        Self {
+            runs,
+            table_state: TableState::new().with_selected(initial),
+        }
+    }
+
+    pub fn move_up(&mut self) {
+        if !self.runs.is_empty() {
+            self.table_state.select_previous();
+            self.clamp_selection();
+        }
+    }
+
+    pub fn move_down(&mut self) {
+        if !self.runs.is_empty() {
+            self.table_state.select_next();
+            self.clamp_selection();
+        }
+    }
+
+    fn clamp_selection(&mut self) {
+        if let Some(sel) = self.table_state.selected() {
+            let max = self.runs.len().saturating_sub(1);
+            if sel > max {
+                self.table_state.select(Some(max));
+            }
+        }
+    }
+}
+
 pub struct HistoryApp {
     pub sessions: Vec<RunSession>,
-    pub cursor: Cursor,
+    pub table_state: TableState,
+    pub mode: AppMode,
+    pub detail: Option<SessionDetail>,
 }
 
 impl HistoryApp {
     #[must_use]
-    pub const fn new(sessions: Vec<RunSession>) -> Self {
+    pub fn new(sessions: Vec<RunSession>) -> Self {
+        let initial = if sessions.is_empty() { None } else { Some(0) };
         Self {
             sessions,
-            cursor: Cursor::new(),
+            table_state: TableState::new().with_selected(initial),
+            mode: AppMode::Browse,
+            detail: None,
         }
     }
 
-    pub const fn move_up(&mut self) {
-        self.cursor.move_up();
+    pub fn move_up(&mut self) {
+        if !self.sessions.is_empty() {
+            self.table_state.select_previous();
+            self.clamp_selection();
+        }
     }
 
     pub fn move_down(&mut self) {
-        self.cursor.move_down(self.sessions.len());
+        if !self.sessions.is_empty() {
+            self.table_state.select_next();
+            self.clamp_selection();
+        }
+    }
+
+    fn clamp_selection(&mut self) {
+        if let Some(sel) = self.table_state.selected() {
+            let max = self.sessions.len().saturating_sub(1);
+            if sel > max {
+                self.table_state.select(Some(max));
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn selected_session(&self) -> Option<&RunSession> {
+        self.table_state
+            .selected()
+            .and_then(|i| self.sessions.get(i))
+    }
+
+    pub fn enter_detail(&mut self, detail: SessionDetail) {
+        let idx = self.table_state.selected().unwrap_or(0);
+        self.detail = Some(detail);
+        self.mode = AppMode::Detail(idx);
+    }
+
+    pub fn exit_detail(&mut self) {
+        self.detail = None;
+        self.mode = AppMode::Browse;
+    }
+
+    pub fn detail_move_up(&mut self) {
+        if let Some(detail) = &mut self.detail {
+            detail.move_up();
+        }
+    }
+
+    pub fn detail_move_down(&mut self) {
+        if let Some(detail) = &mut self.detail {
+            detail.move_down();
+        }
     }
 }
 
@@ -268,7 +349,7 @@ mod tests {
     fn new_creates_all_indices() {
         let app = ScoresApp::new(sample_scores(), 0.95);
         assert_eq!(app.filtered.len(), 5);
-        assert_eq!(app.cursor.position(), 0);
+        assert_eq!(app.table_state.selected(), Some(0));
     }
 
     #[test]
@@ -305,7 +386,7 @@ mod tests {
     #[test]
     fn enter_exit_detail_roundtrip() {
         let mut app = ScoresApp::new(sample_scores(), 0.95);
-        app.cursor.move_down(app.filtered.len());
+        app.move_down();
         let detail = DetailData {
             runs: Vec::new(),
             trend: None,
@@ -336,9 +417,10 @@ mod tests {
                 app.move_up();
             }
             if app.filtered.is_empty() {
-                prop_assert_eq!(app.cursor.position(), 0);
+                prop_assert!(app.table_state.selected().is_none());
             } else {
-                prop_assert!(app.cursor.position() < app.filtered.len());
+                let sel = app.table_state.selected().unwrap_or(0);
+                prop_assert!(sel < app.filtered.len());
             }
         }
 
@@ -404,9 +486,10 @@ mod tests {
                 app.move_up();
             }
             if app.sessions.is_empty() {
-                prop_assert_eq!(app.cursor.position(), 0);
+                prop_assert!(app.table_state.selected().is_none());
             } else {
-                prop_assert!(app.cursor.position() < app.sessions.len());
+                let sel = app.table_state.selected().unwrap_or(0);
+                prop_assert!(sel < app.sessions.len());
             }
         }
     }

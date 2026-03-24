@@ -478,6 +478,27 @@ impl Storage for PostgresStorage {
         Ok(count > 0)
     }
 
+    async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError> {
+        let client = self.get_client().await?;
+
+        let rows = client
+            .query(
+                "SELECT id, test_name, test_path, outcome, duration_ms, timestamp,
+                        commit_hash, branch, retry_count, error_message, stack_trace,
+                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider
+                 FROM test_runs WHERE session_id = $1
+                 ORDER BY test_name ASC",
+                &[&session_id.to_string()],
+            )
+            .await?;
+
+        let mut runs = Vec::with_capacity(rows.len());
+        for row in &rows {
+            runs.push(extract_test_run(row).into_test_run());
+        }
+        Ok(runs)
+    }
+
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError> {
         let client = self.get_client().await?;
 

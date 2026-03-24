@@ -196,6 +196,7 @@
     async fn unquarantine_test(&amp;self, test_name: &amp;str) -&gt; Result&lt;(), NinetyNineError&gt;;
     async fn get_quarantined_tests(&amp;self) -&gt; Result&lt;Vec&lt;QuarantineEntry&gt;, NinetyNineError&gt;;
     async fn is_quarantined(&amp;self, test_name: &amp;str) -&gt; Result&lt;bool, NinetyNineError&gt;;
+    async fn get_session_runs(&amp;self, session_id: &amp;Uuid) -&gt; Result&lt;Vec&lt;TestRun&gt;, NinetyNineError&gt;;
     async fn purge_older_than(&amp;self, days: u32) -&gt; Result&lt;u64, NinetyNineError&gt;;
 }
 <span class="boring">}</span></code></pre></pre>
@@ -214,6 +215,7 @@
 <tr><td><code>unquarantine_test</code></td><td>Removes a test from quarantine</td></tr>
 <tr><td><code>get_quarantined_tests</code></td><td>Lists all quarantined tests</td></tr>
 <tr><td><code>is_quarantined</code></td><td>Checks if a specific test is quarantined</td></tr>
+<tr><td><code>get_session_runs</code></td><td>Retrieves all test runs for a given session, ordered by test name</td></tr>
 <tr><td><code>purge_older_than</code></td><td>Deletes test runs older than N days, returns count deleted</td></tr>
 </tbody></table>
 </div>
