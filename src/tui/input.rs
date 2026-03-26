@@ -39,6 +39,9 @@ pub fn handle_key_event(key: KeyEvent, mode: &AppMode) -> Action {
         AppMode::Detail(_) => match key.code {
             KeyCode::Char('k') | KeyCode::Up => Action::MoveUp,
             KeyCode::Char('j') | KeyCode::Down => Action::MoveDown,
+            KeyCode::Char('s') => Action::CycleSort,
+            KeyCode::Char('r') => Action::ReverseSort,
+            KeyCode::Char('f') => Action::CycleFilter,
             KeyCode::Char('q') | KeyCode::Esc | KeyCode::Enter => Action::Back,
             _ => Action::None,
         },
@@ -102,6 +105,9 @@ mod tests {
     #[case(key(KeyCode::Char('k')), Action::MoveUp)]
     #[case(key(KeyCode::Down), Action::MoveDown)]
     #[case(key(KeyCode::Up), Action::MoveUp)]
+    #[case(key(KeyCode::Char('s')), Action::CycleSort)]
+    #[case(key(KeyCode::Char('r')), Action::ReverseSort)]
+    #[case(key(KeyCode::Char('f')), Action::CycleFilter)]
     #[case(key(KeyCode::Char('x')), Action::None)]
     fn detail_mode_keys(#[case] event: KeyEvent, #[case] expected: Action) {
         assert_eq!(handle_key_event(event, &AppMode::Detail(0)), expected);

@@ -119,9 +119,21 @@ fn scores_loop(
                 match handle_key_event(key, &app.mode) {
                     Action::MoveUp => app.move_up(),
                     Action::MoveDown => app.move_down(),
-                    Action::CycleSort => app.cycle_sort(),
-                    Action::ReverseSort => app.reverse_sort(),
-                    Action::CycleFilter => app.cycle_filter(),
+                    Action::CycleSort => {
+                        if matches!(app.mode, AppMode::Browse) {
+                            app.cycle_sort();
+                        }
+                    }
+                    Action::ReverseSort => {
+                        if matches!(app.mode, AppMode::Browse) {
+                            app.reverse_sort();
+                        }
+                    }
+                    Action::CycleFilter => {
+                        if matches!(app.mode, AppMode::Browse) {
+                            app.cycle_filter();
+                        }
+                    }
                     Action::Enter => {
                         if let Some(score) = app.selected_score() {
                             let name = score.test_name.as_ref();
@@ -182,6 +194,9 @@ fn history_loop(
                         AppMode::Browse => app.move_down(),
                         AppMode::Detail(_) => app.detail_move_down(),
                     },
+                    Action::CycleSort => app.detail_cycle_sort(),
+                    Action::ReverseSort => app.detail_reverse_sort(),
+                    Action::CycleFilter => app.detail_cycle_filter(),
                     Action::Enter => {
                         if let Some(session) = app.selected_session() {
                             let session_id = session.id;

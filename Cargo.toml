@@ -1,6 +1,6 @@
 [package]
 name = "cargo-ninety-nine"
-version = "0.3.2"
+version = "0.3.3"
 authors = ["Jason Ridgway-Taylor <jason@glottologist.co.uk>"]
 description = "A cargo plugin for finding and tracking flaky tests"
 keywords = ["cargo", "flaky", "tests"]

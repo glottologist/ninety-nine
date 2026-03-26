@@ -407,9 +407,10 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         .bottom_margin(1);
 
     let rows: Vec<Row> = detail
-        .runs
+        .filtered
         .iter()
-        .map(|run| {
+        .map(|&idx| {
+            let run = &detail.runs[idx];
             let (label, style) = outcome_label_style(run.outcome);
             Row::new(vec![
                 Cell::from(run.test_name.as_ref()),
@@ -427,22 +428,44 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         Constraint::Length(8),
     ];
 
+    let passed = detail
+        .filtered
+        .iter()
+        .filter(|&&i| detail.runs[i].outcome == TestOutcome::Passed)
+        .count();
+    let failed = detail
+        .filtered
+        .iter()
+        .filter(|&&i| {
+            let o = detail.runs[i].outcome;
+            o != TestOutcome::Passed && o != TestOutcome::Ignored
+        })
+        .count();
     let summary = format!(
-        "{} tests | {} passed | {} failed",
+        "{}/{} tests | {} passed | {} failed",
+        detail.filtered.len(),
         detail.runs.len(),
-        detail
-            .runs
-            .iter()
-            .filter(|r| r.outcome == TestOutcome::Passed)
-            .count(),
-        detail
-            .runs
-            .iter()
-            .filter(|r| r.outcome != TestOutcome::Passed && r.outcome != TestOutcome::Ignored)
-            .count(),
+        passed,
+        failed,
     );
 
+    let direction = if detail.sort_ascending { "asc" } else { "desc" };
+    let filter_bar = Line::from(vec![
+        Span::styled("Filter: ", STYLE_FILTER),
+        Span::styled(
+            detail.filter_label(),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" | ", STYLE_MUTED),
+        Span::styled("Sort: ", STYLE_FILTER),
+        Span::styled(
+            format!("{} ({})", detail.sort_field.label(), direction),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+    ]);
+
     let chunks = Layout::vertical([
+        Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Min(3),
         Constraint::Length(1),
@@ -450,12 +473,13 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
     .split(inner);
 
     f.render_widget(Paragraph::new(summary).style(STYLE_MUTED), chunks[0]);
+    f.render_widget(Paragraph::new(filter_bar), chunks[1]);
 
     let row_count = rows.len();
     let table = Table::new(rows, widths)
         .header(header)
         .row_highlight_style(STYLE_SELECTED);
-    f.render_stateful_widget(table, chunks[1], &mut detail.table_state);
+    f.render_stateful_widget(table, chunks[2], &mut detail.table_state);
 
     let mut scrollbar_state =
         ScrollbarState::new(row_count).position(detail.table_state.selected().unwrap_or(0));
@@ -463,17 +487,23 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(Some("^"))
             .end_symbol(Some("v")),
-        chunks[1],
+        chunks[2],
         &mut scrollbar_state,
     );
 
     let keys = Line::from(vec![
         Span::styled("j/k", STYLE_BOLD),
         Span::styled(":nav  ", STYLE_MUTED),
+        Span::styled("s", STYLE_BOLD),
+        Span::styled(":sort  ", STYLE_MUTED),
+        Span::styled("r", STYLE_BOLD),
+        Span::styled(":reverse  ", STYLE_MUTED),
+        Span::styled("f", STYLE_BOLD),
+        Span::styled(":filter  ", STYLE_MUTED),
         Span::styled("Enter/q/Esc", STYLE_BOLD),
         Span::styled(":back", STYLE_MUTED),
     ]);
-    f.render_widget(Paragraph::new(keys), chunks[2]);
+    f.render_widget(Paragraph::new(keys), chunks[3]);
 }
 
 const fn outcome_label_style(outcome: TestOutcome) -> (&'static str, Style) {

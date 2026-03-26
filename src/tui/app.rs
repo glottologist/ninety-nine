@@ -1,7 +1,8 @@
 use ratatui::widgets::TableState;
 
 use crate::types::{
-    FailurePattern, FlakinessCategory, FlakinessScore, RunSession, TestRun, TrendSummary,
+    FailurePattern, FlakinessCategory, FlakinessScore, RunSession, TestOutcome, TestRun,
+    TrendSummary,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,6 +38,36 @@ impl SortField {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionSortField {
+    Name,
+    Outcome,
+    Duration,
+    Retries,
+}
+
+impl SessionSortField {
+    #[must_use]
+    pub const fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Outcome,
+            Self::Outcome => Self::Duration,
+            Self::Duration => Self::Retries,
+            Self::Retries => Self::Name,
+        }
+    }
+
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Name => "Test",
+            Self::Outcome => "Outcome",
+            Self::Duration => "Duration",
+            Self::Retries => "Retries",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppMode {
     Browse,
@@ -56,6 +87,16 @@ const fn category_ordinal(cat: FlakinessCategory) -> u8 {
         FlakinessCategory::Moderate => 2,
         FlakinessCategory::Frequent => 3,
         FlakinessCategory::Critical => 4,
+    }
+}
+
+const fn outcome_ordinal(outcome: TestOutcome) -> u8 {
+    match outcome {
+        TestOutcome::Passed => 0,
+        TestOutcome::Failed => 1,
+        TestOutcome::Timeout => 2,
+        TestOutcome::Panic => 3,
+        TestOutcome::Ignored => 4,
     }
 }
 
@@ -219,28 +260,39 @@ impl ScoresApp {
 
 pub struct SessionDetail {
     pub runs: Vec<TestRun>,
+    pub filtered: Vec<usize>,
     pub table_state: TableState,
+    pub sort_field: SessionSortField,
+    pub sort_ascending: bool,
+    pub filter_outcome: Option<TestOutcome>,
 }
 
 impl SessionDetail {
     #[must_use]
     pub fn new(runs: Vec<TestRun>) -> Self {
+        let filtered: Vec<usize> = (0..runs.len()).collect();
         let initial = if runs.is_empty() { None } else { Some(0) };
-        Self {
+        let mut detail = Self {
             runs,
+            filtered,
             table_state: TableState::new().with_selected(initial),
-        }
+            sort_field: SessionSortField::Name,
+            sort_ascending: true,
+            filter_outcome: None,
+        };
+        detail.sort_filtered();
+        detail
     }
 
     pub fn move_up(&mut self) {
-        if !self.runs.is_empty() {
+        if !self.filtered.is_empty() {
             self.table_state.select_previous();
             self.clamp_selection();
         }
     }
 
     pub fn move_down(&mut self) {
-        if !self.runs.is_empty() {
+        if !self.filtered.is_empty() {
             self.table_state.select_next();
             self.clamp_selection();
         }
@@ -248,10 +300,79 @@ impl SessionDetail {
 
     fn clamp_selection(&mut self) {
         if let Some(sel) = self.table_state.selected() {
-            let max = self.runs.len().saturating_sub(1);
+            let max = self.filtered.len().saturating_sub(1);
             if sel > max {
                 self.table_state.select(Some(max));
             }
+        }
+    }
+
+    pub fn cycle_sort(&mut self) {
+        self.sort_field = self.sort_field.next();
+        self.sort_filtered();
+    }
+
+    pub fn reverse_sort(&mut self) {
+        self.sort_ascending = !self.sort_ascending;
+        self.sort_filtered();
+    }
+
+    pub fn cycle_filter(&mut self) {
+        self.filter_outcome = match self.filter_outcome {
+            None => Some(TestOutcome::Passed),
+            Some(TestOutcome::Passed) => Some(TestOutcome::Failed),
+            Some(TestOutcome::Failed) => Some(TestOutcome::Timeout),
+            Some(TestOutcome::Timeout) => Some(TestOutcome::Panic),
+            Some(TestOutcome::Panic) => Some(TestOutcome::Ignored),
+            Some(TestOutcome::Ignored) => None,
+        };
+        self.rebuild_filtered();
+    }
+
+    fn rebuild_filtered(&mut self) {
+        self.filtered = (0..self.runs.len())
+            .filter(|&i| match self.filter_outcome {
+                None => true,
+                Some(outcome) => self.runs[i].outcome == outcome,
+            })
+            .collect();
+        self.sort_filtered();
+        let sel = if self.filtered.is_empty() {
+            None
+        } else {
+            Some(0)
+        };
+        self.table_state.select(sel);
+    }
+
+    pub fn sort_filtered(&mut self) {
+        let ascending = self.sort_ascending;
+        let field = self.sort_field;
+
+        self.filtered.sort_by(|&a, &b| {
+            let ra = &self.runs[a];
+            let rb = &self.runs[b];
+            let ord = match field {
+                SessionSortField::Name => ra.test_name.as_ref().cmp(rb.test_name.as_ref()),
+                SessionSortField::Outcome => {
+                    outcome_ordinal(ra.outcome).cmp(&outcome_ordinal(rb.outcome))
+                }
+                SessionSortField::Duration => ra.duration.cmp(&rb.duration),
+                SessionSortField::Retries => ra.retry_count.cmp(&rb.retry_count),
+            };
+            if ascending { ord } else { ord.reverse() }
+        });
+    }
+
+    #[must_use]
+    pub const fn filter_label(&self) -> &str {
+        match self.filter_outcome {
+            None => "All",
+            Some(TestOutcome::Passed) => "Pass",
+            Some(TestOutcome::Failed) => "Fail",
+            Some(TestOutcome::Timeout) => "Timeout",
+            Some(TestOutcome::Panic) => "Panic",
+            Some(TestOutcome::Ignored) => "Ignored",
         }
     }
 }
@@ -325,6 +446,24 @@ impl HistoryApp {
     pub fn detail_move_down(&mut self) {
         if let Some(detail) = &mut self.detail {
             detail.move_down();
+        }
+    }
+
+    pub fn detail_cycle_sort(&mut self) {
+        if let Some(detail) = &mut self.detail {
+            detail.cycle_sort();
+        }
+    }
+
+    pub fn detail_reverse_sort(&mut self) {
+        if let Some(detail) = &mut self.detail {
+            detail.reverse_sort();
+        }
+    }
+
+    pub fn detail_cycle_filter(&mut self) {
+        if let Some(detail) = &mut self.detail {
+            detail.cycle_filter();
         }
     }
 }

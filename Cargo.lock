@@ -179,7 +179,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-ninety-nine"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "cargo_metadata",
  "chrono",
