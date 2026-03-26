@@ -82,15 +82,48 @@ Navigate with `j`/`k` or arrow keys. Press Enter to view the test runs from that
 
 ### Session Detail
 
-Pressing Enter on a session opens a scrollable overlay showing all test runs from that session:
+Pressing Enter on a session opens a scrollable overlay with the same filter, sort, and reverse controls available in the scores view:
+
+```
+┌────────── 2026-03-26 18:38 | jason/add_tests | 47dc1602 ──────────┐
+│ 9580/9580 tests | 9580 passed | 0 failed                           │
+│ Filter: All | Sort: Test (asc)                                      │
+│ Test                           Outcome  Duration  Retries          ^│
+│                                                                    ││
+│ add_slots_test                 PASS     51ms      0                ││
+│ address::tests::parse_case_1  PASS     50ms      0                █│
+│ address::tests::parse_case_2  PASS     50ms      0                ││
+│ address::tests::roundtrip     PASS     50ms      0                ││
+│                                                                    ││
+│ j/k:nav  s:sort  r:reverse  f:filter  Enter/q/Esc:back            v│
+└────────────────────────────────────────────────────────────────────-┘
+```
 
 - **Title bar** -- session date, branch, and commit hash
-- **Summary line** -- total tests, passed count, failed count
+- **Summary line** -- filtered/total tests, passed count, failed count
+- **Filter bar** -- current outcome filter and sort field with direction (same orange style as the scores view)
 - **Test table** -- test name, outcome (colour-coded PASS/FAIL/TIME/PANC/SKIP), duration, retry count
 - **Scrollbar** -- right edge of the test table with `^`/`v` markers, tracks the selected row
-- **Row highlighting** -- currently selected row is highlighted
 
-Navigate within the detail overlay using `j`/`k` or arrow keys. Press Enter, `q`, or Esc to return to the session list.
+#### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `j` / Down arrow | Move selection down |
+| `k` / Up arrow | Move selection up |
+| `s` | Cycle sort field (Test, Outcome, Duration, Retries) |
+| `r` | Reverse sort order |
+| `f` | Cycle outcome filter (All, Pass, Fail, Timeout, Panic, Ignored) |
+| Enter / `q` / Esc | Return to session list |
+| Ctrl+C | Quit |
+
+#### Sorting
+
+Press `s` to cycle through sort fields: Test name, Outcome, Duration, Retries. Press `r` to toggle ascending/descending. The current sort state is shown in the orange filter bar.
+
+#### Filtering
+
+Press `f` to cycle through outcome filters. When active, only runs with that outcome are shown. The summary line updates to show filtered/total counts.
 
 ## Disabling the TUI
 
