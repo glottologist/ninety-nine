@@ -11,7 +11,7 @@ pub fn calculate_trend(test_name: &str, runs: &[TestRun], window: u32) -> Option
     // Callers pass runs in whichever order they hold them (storage queries are
     // newest-first, in-memory session results oldest-first); the recent/previous
     // split below is only correct for newest-first, so order here.
-    relevant.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    relevant.sort_by_key(|r| std::cmp::Reverse(r.timestamp));
     relevant.truncate(window_size);
 
     if relevant.len() < 4 {
