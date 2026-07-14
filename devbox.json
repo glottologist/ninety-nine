@@ -40,7 +40,7 @@
   },
   "languages": {
     "rust": {
-      "version": "latest"
+      "version": "1.97.0"
     }
   }
 }
