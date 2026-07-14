@@ -3,7 +3,7 @@ pub mod detection;
 pub mod executor;
 pub mod listing;
 
-pub use detection::{AvailableRunner, detect_available_runner};
+pub use detection::cargo_available;
 
 use std::path::{Path, PathBuf};
 
@@ -58,37 +58,6 @@ impl NativeRunner {
 
         Ok(cases)
     }
-
-    /// Runs a single test case.
-    ///
-    /// # Errors
-    ///
-    /// Returns `RunnerExecution` if the test fails to execute.
-    pub fn run_test_sync(&self, test_case: &TestCase) -> Result<TestResult, NinetyNineError> {
-        let executor = Executor::new(&self.execution_config);
-        executor.run_single(test_case)
-    }
-
-    /// Runs a test case multiple times.
-    ///
-    /// # Errors
-    ///
-    /// Returns `RunnerExecution` if any iteration fails to execute.
-    pub fn run_test_repeatedly(
-        &self,
-        test_case: &TestCase,
-        iterations: u32,
-        environment: &TestEnvironment,
-    ) -> Result<Vec<TestRun>, NinetyNineError> {
-        let mut runs = Vec::with_capacity(usize::try_from(iterations).unwrap_or(usize::MAX));
-
-        for _ in 0..iterations {
-            let result = self.run_test_sync(test_case)?;
-            runs.push(test_result_to_run(&result, environment));
-        }
-
-        Ok(runs)
-    }
 }
 
 pub enum RunnerBackend {
@@ -118,25 +87,13 @@ impl RunnerBackend {
             Self::Native(r) => r.discover_tests(filter).await,
         }
     }
-
-    /// Runs a test case multiple times.
-    ///
-    /// # Errors
-    ///
-    /// Returns errors from the underlying runner.
-    pub fn run_test_repeatedly(
-        &self,
-        test_case: &TestCase,
-        iterations: u32,
-        environment: &TestEnvironment,
-    ) -> Result<Vec<TestRun>, NinetyNineError> {
-        match self {
-            Self::Native(r) => r.run_test_repeatedly(test_case, iterations, environment),
-        }
-    }
 }
 
 /// Executes a test for `iterations` iterations and returns the results.
+///
+/// Each iteration may span several attempts when retries are configured;
+/// every attempt is recorded as its own run so retried failures stay
+/// visible to flakiness detection.
 ///
 /// # Errors
 ///
@@ -151,8 +108,8 @@ pub fn execute_iterations(
     let mut runs = Vec::with_capacity(usize::try_from(iterations).unwrap_or(usize::MAX));
 
     for _ in 0..iterations {
-        let result = executor.run_single(test_case)?;
-        runs.push(test_result_to_run(&result, environment));
+        let attempts = executor.run_attempts(test_case)?;
+        runs.extend(attempts.iter().map(|a| test_result_to_run(a, environment)));
     }
 
     Ok(runs)

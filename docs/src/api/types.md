@@ -182,7 +182,7 @@ pub enum FlakinessCategory {
 
 ### `ActiveSession`
 
-Represents a running test session. Created via `start()`, consumed by `into_run_session()` to produce a storable `RunSession`. Ownership semantics prevent double-finish bugs.
+Represents a running test session. Created via `start()`; `to_run_session()` produces the storable `RunSession` snapshot while the session stays live.
 
 ```rust
 pub struct ActiveSession { /* private fields */ }
@@ -194,7 +194,6 @@ pub struct ActiveSession { /* private fields */ }
 |--------|-----------|-------------|
 | `start` | `fn start(commit_hash: &str, branch: &str) -> Self` | Create a new session |
 | `id` | `fn id(&self) -> &Uuid` | Get session UUID |
-| `into_run_session` | `fn into_run_session(self) -> RunSession` | Convert to storable form (consuming) |
 | `to_run_session` | `fn to_run_session(&self) -> RunSession` | Convert to storable form (borrowing) |
 
 ### `RunSession`

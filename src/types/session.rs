@@ -18,8 +18,8 @@ pub struct RunSession {
 
 /// A session that is actively running.
 ///
-/// Created via `start()`, consumed by `into_run_session()` to produce a
-/// storable `RunSession`. Once converted or dropped, it cannot be reused.
+/// Created via `start()`; `to_run_session()` produces the storable
+/// `RunSession` snapshot while the session stays live.
 #[derive(Debug)]
 pub struct ActiveSession {
     id: Uuid,
@@ -42,20 +42,6 @@ impl ActiveSession {
     #[must_use]
     pub const fn id(&self) -> &Uuid {
         &self.id
-    }
-
-    /// Converts to a `RunSession` suitable for storage.
-    #[must_use]
-    pub fn into_run_session(self) -> RunSession {
-        RunSession {
-            id: self.id,
-            started_at: self.started_at,
-            finished_at: None,
-            test_count: 0,
-            flaky_count: 0,
-            commit_hash: self.commit_hash,
-            branch: self.branch,
-        }
     }
 
     /// Creates a storable `RunSession` without consuming self.

@@ -7,11 +7,12 @@ const TREND_THRESHOLD: f64 = 0.05;
 #[must_use]
 pub fn calculate_trend(test_name: &str, runs: &[TestRun], window: u32) -> Option<TrendSummary> {
     let window_size = usize::try_from(window).unwrap_or(usize::MAX);
-    let relevant: Vec<&TestRun> = runs
-        .iter()
-        .filter(|r| r.test_name == test_name)
-        .take(window_size)
-        .collect();
+    let mut relevant: Vec<&TestRun> = runs.iter().filter(|r| r.test_name == test_name).collect();
+    // Callers pass runs in whichever order they hold them (storage queries are
+    // newest-first, in-memory session results oldest-first); the recent/previous
+    // split below is only correct for newest-first, so order here.
+    relevant.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    relevant.truncate(window_size);
 
     if relevant.len() < 4 {
         return None;
@@ -50,41 +51,69 @@ fn failure_rate(runs: &[&TestRun]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::test_run;
+    use crate::test_helpers::{test_run, test_run_at_hour};
     use crate::types::TestOutcome;
     use proptest::prelude::*;
     use rstest::rstest;
 
-    fn make_runs_with_outcomes(name: &str, outcomes: &[TestOutcome]) -> Vec<TestRun> {
-        outcomes.iter().map(|o| test_run(name, *o)).collect()
+    /// Builds runs in chronological order: index i is stamped i hours after
+    /// the base, so the last element is the newest.
+    fn chronological_runs(name: &str, outcomes: &[TestOutcome]) -> Vec<TestRun> {
+        outcomes
+            .iter()
+            .enumerate()
+            .map(|(i, o)| test_run_at_hour(name, *o, u32::try_from(i).unwrap_or(0)))
+            .collect()
     }
 
     #[test]
     fn too_few_runs_returns_none() {
-        let runs = make_runs_with_outcomes("test::a", &[TestOutcome::Passed, TestOutcome::Passed]);
+        let runs = chronological_runs("test::a", &[TestOutcome::Passed, TestOutcome::Passed]);
         assert!(calculate_trend("test::a", &runs, 100).is_none());
     }
 
     #[rstest]
     #[case(
-        &[TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed],
+        &[TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Failed],
         TrendDirection::Degrading
     )]
     #[case(
-        &[TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Failed],
+        &[TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed],
         TrendDirection::Improving
     )]
     #[case(
         &[TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed, TestOutcome::Passed],
         TrendDirection::Stable
     )]
-    fn trend_direction_from_outcomes(
+    fn trend_direction_from_chronological_outcomes(
         #[case] outcomes: &[TestOutcome],
         #[case] expected: TrendDirection,
     ) {
-        let runs = make_runs_with_outcomes("test::trend", outcomes);
+        let runs = chronological_runs("test::trend", outcomes);
         let trend = calculate_trend("test::trend", &runs, 100).unwrap();
         assert_eq!(trend.direction, expected);
+    }
+
+    /// Regression test for the H-1 inversion: the direction must not depend
+    /// on the order in which callers happen to hold the runs.
+    #[rstest]
+    #[case(false)]
+    #[case(true)]
+    fn trend_direction_is_order_independent(#[case] reversed: bool) {
+        let outcomes = [
+            TestOutcome::Passed,
+            TestOutcome::Passed,
+            TestOutcome::Passed,
+            TestOutcome::Failed,
+            TestOutcome::Failed,
+            TestOutcome::Failed,
+        ];
+        let mut runs = chronological_runs("test::order", &outcomes);
+        if reversed {
+            runs.reverse();
+        }
+        let trend = calculate_trend("test::order", &runs, 100).unwrap();
+        assert_eq!(trend.direction, TrendDirection::Degrading);
     }
 
     proptest! {

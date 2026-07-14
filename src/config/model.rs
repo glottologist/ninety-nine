@@ -2,45 +2,58 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Config {
     pub detection: DetectionConfig,
     pub retry: RetryConfig,
     pub quarantine: QuarantineConfig,
     pub storage: StorageConfig,
     pub reporting: ReportingConfig,
-    pub ci: CiConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DetectionConfig {
     pub min_runs: u32,
     pub confidence_threshold: f64,
     pub window_size: u32,
-    pub detection_methods: Vec<DetectionMethod>,
-    pub auto_detect: bool,
     pub parallel_runs: u32,
     pub duration_regression: Option<DurationRegressionConfig>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum DetectionMethod {
-    Bayesian,
-}
-
-impl std::fmt::Display for DetectionMethod {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Bayesian => write!(f, "bayesian"),
+impl Default for DetectionConfig {
+    fn default() -> Self {
+        Self {
+            min_runs: 10,
+            confidence_threshold: 0.95,
+            window_size: 100,
+            parallel_runs: 3,
+            duration_regression: None,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RetryConfig {
     pub unit_test_retries: u32,
     pub backoff_strategy: BackoffStrategy,
     pub max_retry_time_secs: u64,
+}
+
+impl Default for RetryConfig {
+    fn default() -> Self {
+        Self {
+            unit_test_retries: 2,
+            backoff_strategy: BackoffStrategy::Exponential {
+                base_ms: 100,
+                factor: 2.0,
+                max_ms: 5000,
+            },
+            max_retry_time_secs: 300,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,18 +74,39 @@ pub enum BackoffStrategy {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct QuarantineConfig {
     pub enabled: bool,
     pub auto_quarantine: bool,
     pub threshold: QuarantineThreshold,
-    pub max_quarantine_days: u32,
+}
+
+impl Default for QuarantineConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            auto_quarantine: false,
+            threshold: QuarantineThreshold::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct QuarantineThreshold {
     pub consecutive_failures: u32,
     pub failure_rate: f64,
     pub flakiness_score: f64,
+}
+
+impl Default for QuarantineThreshold {
+    fn default() -> Self {
+        Self {
+            consecutive_failures: 3,
+            failure_rate: 0.20,
+            flakiness_score: 0.15,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,6 +127,7 @@ pub struct PostgresConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct StorageConfig {
     pub backend: StorageBackendType,
     pub retention_days: u32,
@@ -100,42 +135,29 @@ pub struct StorageConfig {
     pub postgres: Option<PostgresConfig>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl Default for StorageConfig {
+    fn default() -> Self {
+        Self {
+            backend: StorageBackendType::Sqlite,
+            retention_days: 90,
+            sqlite: Some(SqliteConfig {
+                database_path: default_database_path(),
+            }),
+            postgres: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ReportingConfig {
     pub console: ConsoleOutputConfig,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ConsoleOutputConfig {
     pub summary_only: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CiConfig {
-    pub provider: Option<CiProvider>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum CiProvider {
-    GitHub,
-    GitLab,
-    Jenkins,
-    CircleCI,
-    AzureDevOps,
-    Buildkite,
-}
-
-impl std::fmt::Display for CiProvider {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::GitHub => write!(f, "GitHub Actions"),
-            Self::GitLab => write!(f, "GitLab CI"),
-            Self::Jenkins => write!(f, "Jenkins"),
-            Self::CircleCI => write!(f, "CircleCI"),
-            Self::AzureDevOps => write!(f, "Azure DevOps"),
-            Self::Buildkite => write!(f, "Buildkite"),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -149,55 +171,6 @@ pub struct DurationRegressionConfig {
 pub enum DurationThreshold {
     Multiplier(f64),
     StdDev(f64),
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            detection: DetectionConfig {
-                min_runs: 10,
-                confidence_threshold: 0.95,
-                window_size: 100,
-                detection_methods: vec![DetectionMethod::Bayesian],
-                auto_detect: true,
-                parallel_runs: 3,
-                duration_regression: None,
-            },
-            retry: RetryConfig {
-                unit_test_retries: 2,
-                backoff_strategy: BackoffStrategy::Exponential {
-                    base_ms: 100,
-                    factor: 2.0,
-                    max_ms: 5000,
-                },
-                max_retry_time_secs: 300,
-            },
-            quarantine: QuarantineConfig {
-                enabled: true,
-                auto_quarantine: false,
-                threshold: QuarantineThreshold {
-                    consecutive_failures: 3,
-                    failure_rate: 0.20,
-                    flakiness_score: 0.15,
-                },
-                max_quarantine_days: 30,
-            },
-            storage: StorageConfig {
-                backend: StorageBackendType::Sqlite,
-                retention_days: 90,
-                sqlite: Some(SqliteConfig {
-                    database_path: default_database_path(),
-                }),
-                postgres: None,
-            },
-            reporting: ReportingConfig {
-                console: ConsoleOutputConfig {
-                    summary_only: false,
-                },
-            },
-            ci: CiConfig { provider: None },
-        }
-    }
 }
 
 fn default_database_path() -> PathBuf {

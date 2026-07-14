@@ -10,7 +10,11 @@ use crate::types::{FlakinessCategory, FlakinessScore};
 /// # Errors
 ///
 /// Returns `Io` if the file cannot be written.
-pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
+pub fn export_junit(
+    scores: &[FlakinessScore],
+    path: &Path,
+    confidence_threshold: f64,
+) -> Result<(), NinetyNineError> {
     let mut xml = String::with_capacity(4096);
     writeln!(xml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>").ok();
     writeln!(
@@ -19,7 +23,7 @@ pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), Ninety
         scores.len(),
         scores
             .iter()
-            .filter(|s| s.probability_flaky >= 0.05)
+            .filter(|s| s.effective_score(confidence_threshold) >= 0.05)
             .count(),
     )
     .ok();
@@ -32,14 +36,15 @@ pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), Ninety
 
     for score in scores {
         let name = xml_escape(&score.test_name);
-        let category = FlakinessCategory::from_score(score.probability_flaky);
+        let effective = score.effective_score(confidence_threshold);
+        let category = FlakinessCategory::from_score(effective);
 
-        if score.probability_flaky >= 0.05 {
+        if effective >= 0.05 {
             writeln!(xml, "    <testcase name=\"{name}\" time=\"0\">").ok();
             writeln!(
                 xml,
                 "      <failure message=\"flaky: {:.1}% probability, category: {category}\">",
-                score.probability_flaky * 100.0,
+                effective * 100.0,
             )
             .ok();
             writeln!(
@@ -68,7 +73,11 @@ pub fn export_junit(scores: &[FlakinessScore], path: &Path) -> Result<(), Ninety
 /// # Errors
 ///
 /// Returns `Io` if the file cannot be written.
-pub fn export_csv(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
+pub fn export_csv(
+    scores: &[FlakinessScore],
+    path: &Path,
+    confidence_threshold: f64,
+) -> Result<(), NinetyNineError> {
     let mut out = String::with_capacity(2048);
     writeln!(
         out,
@@ -77,7 +86,7 @@ pub fn export_csv(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNi
     .ok();
 
     for score in scores {
-        let category = FlakinessCategory::from_score(score.probability_flaky);
+        let category = FlakinessCategory::from_score(score.effective_score(confidence_threshold));
         writeln!(
             out,
             "{},{:.6},{:.6},{},{},{},{:.6}",
@@ -100,19 +109,23 @@ pub fn export_csv(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNi
 /// # Errors
 ///
 /// Returns `Io` if the file cannot be written.
-pub fn export_html(scores: &[FlakinessScore], path: &Path) -> Result<(), NinetyNineError> {
+pub fn export_html(
+    scores: &[FlakinessScore],
+    path: &Path,
+    confidence_threshold: f64,
+) -> Result<(), NinetyNineError> {
     let mut html = String::with_capacity(8192);
     write_html_head(&mut html);
 
     let flaky_count = scores
         .iter()
-        .filter(|s| s.probability_flaky >= 0.05)
+        .filter(|s| s.effective_score(confidence_threshold) >= 0.05)
         .count();
     write_html_summary(&mut html, scores.len(), flaky_count);
     write_html_table_header(&mut html);
 
     for score in scores {
-        write_html_table_row(&mut html, score);
+        write_html_table_row(&mut html, score, confidence_threshold);
     }
 
     write_html_footer(&mut html);
@@ -179,14 +192,15 @@ fn write_html_table_header(buf: &mut String) {
     writeln!(buf, "</tr></thead><tbody>").ok();
 }
 
-fn write_html_table_row(buf: &mut String, score: &FlakinessScore) {
-    let category = FlakinessCategory::from_score(score.probability_flaky);
+fn write_html_table_row(buf: &mut String, score: &FlakinessScore, confidence_threshold: f64) {
+    let effective = score.effective_score(confidence_threshold);
+    let category = FlakinessCategory::from_score(effective);
     let css_class = category.label().to_lowercase();
     let name = html_escape(&score.test_name);
 
     writeln!(buf, "<tr>").ok();
     writeln!(buf, "  <td><code>{name}</code></td>").ok();
-    writeln!(buf, "  <td>{:.1}%</td>", score.probability_flaky * 100.0).ok();
+    writeln!(buf, "  <td>{:.1}%</td>", effective * 100.0).ok();
     writeln!(buf, "  <td>{:.1}%</td>", score.pass_rate * 100.0).ok();
     writeln!(buf, "  <td>{}</td>", score.total_runs).ok();
     writeln!(buf, "  <td>{}</td>", score.consecutive_failures).ok();
@@ -240,10 +254,17 @@ fn html_escape(s: &str) -> String {
 }
 
 fn csv_escape(s: &str) -> String {
-    if s.contains(',') || s.contains('"') || s.contains('\n') {
-        format!("\"{}\"", s.replace('"', "\"\""))
+    // A leading formula trigger would execute when the CSV opens in a
+    // spreadsheet; the conventional guard is a leading apostrophe.
+    let guarded = if s.starts_with(['=', '+', '-', '@']) {
+        format!("'{s}")
     } else {
         s.to_string()
+    };
+    if guarded.contains(',') || guarded.contains('"') || guarded.contains('\n') {
+        format!("\"{}\"", guarded.replace('"', "\"\""))
+    } else {
+        guarded
     }
 }
 
@@ -282,7 +303,7 @@ mod tests {
             sample_score("test::flaky", 0.25),
         ];
         let tmp = NamedTempFile::new().unwrap();
-        export_junit(&scores, tmp.path()).unwrap();
+        export_junit(&scores, tmp.path(), 0.95).unwrap();
         let content = std::fs::read_to_string(tmp.path()).unwrap();
         assert!(content.contains("<?xml"));
         assert!(content.contains("test::stable"));
@@ -293,7 +314,7 @@ mod tests {
     fn csv_export_has_header_and_rows() {
         let scores = vec![sample_score("test::one", 0.1)];
         let tmp = NamedTempFile::new().unwrap();
-        export_csv(&scores, tmp.path()).unwrap();
+        export_csv(&scores, tmp.path(), 0.95).unwrap();
         let content = std::fs::read_to_string(tmp.path()).unwrap();
         let lines: Vec<&str> = content.lines().collect();
         assert_eq!(lines.len(), 2);
@@ -305,7 +326,7 @@ mod tests {
     fn html_export_contains_structure() {
         let scores = vec![sample_score("test::html", 0.5)];
         let tmp = NamedTempFile::new().unwrap();
-        export_html(&scores, tmp.path()).unwrap();
+        export_html(&scores, tmp.path(), 0.95).unwrap();
         let content = std::fs::read_to_string(tmp.path()).unwrap();
         assert!(content.contains("<!DOCTYPE html>"));
         assert!(content.contains("test::html"));
@@ -352,6 +373,18 @@ mod tests {
         }
 
         #[test]
+        fn csv_escape_guards_formula_triggers(
+            prefix in "[=+@-]",
+            rest in "[a-zA-Z0-9_:()]{0,40}",
+        ) {
+            let escaped = csv_escape(&format!("{prefix}{rest}"));
+            prop_assert!(
+                escaped.starts_with('\''),
+                "formula trigger must be apostrophe-guarded, got: {escaped}"
+            );
+        }
+
+        #[test]
         fn csv_escape_roundtrip_preserves_content(s in "[a-zA-Z0-9_:, \"\\n]{0,100}") {
             let escaped = csv_escape(&s);
             if escaped.starts_with('"') {
@@ -370,7 +403,7 @@ mod tests {
         ) {
             let scores = vec![sample_score(&name, prob)];
             let tmp = NamedTempFile::new().unwrap();
-            prop_assert!(export_junit(&scores, tmp.path()).is_ok());
+            prop_assert!(export_junit(&scores, tmp.path(), 0.95).is_ok());
         }
     }
 }

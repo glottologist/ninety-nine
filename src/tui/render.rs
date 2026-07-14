@@ -28,7 +28,7 @@ pub fn draw_scores(f: &mut Frame, app: &mut ScoresApp) {
     draw_scores_table(f, app, chunks[2]);
     draw_scores_footer(f, chunks[3]);
 
-    if let AppMode::Detail(_) = app.mode {
+    if app.mode == AppMode::Detail {
         if let (Some(score), Some(detail)) = (app.selected_score(), app.detail.as_ref()) {
             draw_detail_overlay(f, score, detail, app.confidence_threshold);
         }
@@ -367,7 +367,7 @@ pub fn draw_history(f: &mut Frame, app: &mut HistoryApp) {
     ]);
     f.render_widget(Paragraph::new(keys), chunks[2]);
 
-    if let AppMode::Detail(_) = app.mode {
+    if app.mode == AppMode::Detail {
         if let Some(session) = app.selected_session().cloned() {
             if let Some(detail) = &mut app.detail {
                 draw_session_detail_overlay(f, &session, detail);
@@ -428,41 +428,8 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         Constraint::Length(8),
     ];
 
-    let passed = detail
-        .filtered
-        .iter()
-        .filter(|&&i| detail.runs[i].outcome == TestOutcome::Passed)
-        .count();
-    let failed = detail
-        .filtered
-        .iter()
-        .filter(|&&i| {
-            let o = detail.runs[i].outcome;
-            o != TestOutcome::Passed && o != TestOutcome::Ignored
-        })
-        .count();
-    let summary = format!(
-        "{}/{} tests | {} passed | {} failed",
-        detail.filtered.len(),
-        detail.runs.len(),
-        passed,
-        failed,
-    );
-
-    let direction = if detail.sort_ascending { "asc" } else { "desc" };
-    let filter_bar = Line::from(vec![
-        Span::styled("Filter: ", STYLE_FILTER),
-        Span::styled(
-            detail.filter_label(),
-            STYLE_FILTER.add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" | ", STYLE_MUTED),
-        Span::styled("Sort: ", STYLE_FILTER),
-        Span::styled(
-            format!("{} ({})", detail.sort_field.label(), direction),
-            STYLE_FILTER.add_modifier(Modifier::BOLD),
-        ),
-    ]);
+    let summary = session_summary_line(detail);
+    let filter_bar = session_filter_bar(detail);
 
     let chunks = Layout::vertical([
         Constraint::Length(1),
@@ -491,7 +458,52 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         &mut scrollbar_state,
     );
 
-    let keys = Line::from(vec![
+    let keys = session_footer_keys();
+    f.render_widget(Paragraph::new(keys), chunks[3]);
+}
+
+fn session_summary_line(detail: &SessionDetail) -> String {
+    let passed = detail
+        .filtered
+        .iter()
+        .filter(|&&i| detail.runs[i].outcome == TestOutcome::Passed)
+        .count();
+    let failed = detail
+        .filtered
+        .iter()
+        .filter(|&&i| {
+            let o = detail.runs[i].outcome;
+            o != TestOutcome::Passed && o != TestOutcome::Ignored
+        })
+        .count();
+    format!(
+        "{}/{} tests | {} passed | {} failed",
+        detail.filtered.len(),
+        detail.runs.len(),
+        passed,
+        failed,
+    )
+}
+
+fn session_filter_bar(detail: &SessionDetail) -> Line<'_> {
+    let direction = if detail.sort_ascending { "asc" } else { "desc" };
+    Line::from(vec![
+        Span::styled("Filter: ", STYLE_FILTER),
+        Span::styled(
+            detail.filter_label(),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" | ", STYLE_MUTED),
+        Span::styled("Sort: ", STYLE_FILTER),
+        Span::styled(
+            format!("{} ({})", detail.sort_field.label(), direction),
+            STYLE_FILTER.add_modifier(Modifier::BOLD),
+        ),
+    ])
+}
+
+fn session_footer_keys() -> Line<'static> {
+    Line::from(vec![
         Span::styled("j/k", STYLE_BOLD),
         Span::styled(":nav  ", STYLE_MUTED),
         Span::styled("s", STYLE_BOLD),
@@ -502,21 +514,18 @@ fn draw_session_detail_overlay(f: &mut Frame, session: &RunSession, detail: &mut
         Span::styled(":filter  ", STYLE_MUTED),
         Span::styled("Enter/q/Esc", STYLE_BOLD),
         Span::styled(":back", STYLE_MUTED),
-    ]);
-    f.render_widget(Paragraph::new(keys), chunks[3]);
+    ])
 }
 
 const fn outcome_label_style(outcome: TestOutcome) -> (&'static str, Style) {
-    match outcome {
-        TestOutcome::Passed => ("PASS", Style::new().fg(Color::Green)),
-        TestOutcome::Failed => ("FAIL", Style::new().fg(Color::Red)),
-        TestOutcome::Timeout => ("TIME", Style::new().fg(Color::Yellow)),
-        TestOutcome::Panic => (
-            "PANC",
-            Style::new().fg(Color::Red).add_modifier(Modifier::BOLD),
-        ),
-        TestOutcome::Ignored => ("SKIP", Style::new().fg(Color::DarkGray)),
-    }
+    let style = match outcome {
+        TestOutcome::Passed => Style::new().fg(Color::Green),
+        TestOutcome::Failed => Style::new().fg(Color::Red),
+        TestOutcome::Timeout => Style::new().fg(Color::Yellow),
+        TestOutcome::Panic => Style::new().fg(Color::Red).add_modifier(Modifier::BOLD),
+        TestOutcome::Ignored => Style::new().fg(Color::DarkGray),
+    };
+    (outcome.short_label(), style)
 }
 
 #[cfg(test)]

@@ -71,6 +71,22 @@ mod tests {
     }
 
     #[test]
+    fn load_config_accepts_partial_toml() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(CONFIG_FILE_NAME),
+            "[detection]\nmin_runs = 20\n\n[storage]\nretention_days = 30\n",
+        )
+        .unwrap();
+        let config = load_config(dir.path()).unwrap();
+        assert_eq!(config.detection.min_runs, 20);
+        assert_eq!(config.storage.retention_days, 30);
+        assert!((config.detection.confidence_threshold - 0.95).abs() < f64::EPSILON);
+        assert_eq!(config.retry.unit_test_retries, 2);
+        assert_eq!(config.storage.backend, model::StorageBackendType::Sqlite);
+    }
+
+    #[test]
     fn load_config_malformed_toml_returns_error() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join(CONFIG_FILE_NAME), "{{invalid toml!").unwrap();

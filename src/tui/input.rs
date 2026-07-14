@@ -36,7 +36,7 @@ pub fn handle_key_event(key: KeyEvent, mode: &AppMode) -> Action {
             KeyCode::Char('q') | KeyCode::Esc => Action::Quit,
             _ => Action::None,
         },
-        AppMode::Detail(_) => match key.code {
+        AppMode::Detail => match key.code {
             KeyCode::Char('k') | KeyCode::Up => Action::MoveUp,
             KeyCode::Char('j') | KeyCode::Down => Action::MoveDown,
             KeyCode::Char('s') => Action::CycleSort,
@@ -110,16 +110,13 @@ mod tests {
     #[case(key(KeyCode::Char('f')), Action::CycleFilter)]
     #[case(key(KeyCode::Char('x')), Action::None)]
     fn detail_mode_keys(#[case] event: KeyEvent, #[case] expected: Action) {
-        assert_eq!(handle_key_event(event, &AppMode::Detail(0)), expected);
+        assert_eq!(handle_key_event(event, &AppMode::Detail), expected);
     }
 
     #[test]
     fn ctrl_c_quits_in_any_mode() {
         assert_eq!(handle_key_event(ctrl_c(), &AppMode::Browse), Action::Quit);
-        assert_eq!(
-            handle_key_event(ctrl_c(), &AppMode::Detail(0)),
-            Action::Quit
-        );
+        assert_eq!(handle_key_event(ctrl_c(), &AppMode::Detail), Action::Quit);
     }
 
     #[test]

@@ -1,13 +1,13 @@
 use std::path::Path;
 use std::sync::Mutex;
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use rusqlite::{Connection, params};
 use uuid::Uuid;
 
 use crate::error::NinetyNineError;
 use crate::storage::mapping::{RawScoreRow, RawTestRunRow};
-use crate::storage::{Storage, duration_to_ms, schema};
+use crate::storage::{Storage, duration_to_ms, parse_timestamp, schema};
 use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestName, TestRun};
 
 pub struct SqliteStorage {
@@ -67,10 +67,6 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     Ok(())
-}
-
-fn parse_timestamp(s: &str) -> DateTime<Utc> {
-    super::parse_timestamp(s)
 }
 
 impl Storage for SqliteStorage {
@@ -225,7 +221,10 @@ impl Storage for SqliteStorage {
                 let branch: String = row.get(6)?;
 
                 Ok(RunSession {
-                    id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
+                    id: Uuid::parse_str(&id_str).unwrap_or_else(|e| {
+                        tracing::warn!(id = %id_str, error = %e, "corrupt session UUID in storage, generating new");
+                        Uuid::new_v4()
+                    }),
                     started_at: parse_timestamp(&started_str),
                     finished_at: finished_str.map(|s| parse_timestamp(&s)),
                     test_count,
@@ -389,12 +388,21 @@ impl Storage for SqliteStorage {
         let cutoff_str = cutoff.to_rfc3339();
 
         let guard = self.lock_conn()?;
-        guard.execute(
+        let purged_runs = guard.execute(
             "DELETE FROM test_runs WHERE timestamp < ?1",
             params![cutoff_str],
         )?;
 
-        Ok(guard.changes())
+        guard.execute(
+            "DELETE FROM run_sessions
+             WHERE started_at < ?1
+               AND NOT EXISTS (
+                   SELECT 1 FROM test_runs WHERE test_runs.session_id = run_sessions.id
+               )",
+            params![cutoff_str],
+        )?;
+
+        Ok(u64::try_from(purged_runs).unwrap_or(u64::MAX))
     }
 }
 
@@ -405,7 +413,7 @@ fn extract_test_run_row(row: &rusqlite::Row<'_>) -> Result<RawTestRunRow, Ninety
         test_path: row.get(2)?,
         outcome: row.get(3)?,
         duration_ms: row.get(4)?,
-        timestamp: row.get(5)?,
+        timestamp: parse_timestamp(&row.get::<_, String>(5)?),
         commit_hash: row.get(6)?,
         branch: row.get(7)?,
         retry_count: row.get(8)?,
@@ -429,7 +437,7 @@ fn extract_score_row(row: &rusqlite::Row<'_>) -> Result<RawScoreRow, NinetyNineE
         fail_rate: row.get(4)?,
         total_runs: row.get(5)?,
         consecutive_failures: row.get(6)?,
-        last_updated: row.get(7)?,
+        last_updated: parse_timestamp(&row.get::<_, String>(7)?),
         alpha: row.get(8)?,
         beta: row.get(9)?,
         posterior_mean: row.get(10)?,
@@ -445,7 +453,6 @@ mod tests {
     use crate::test_helpers::{test_run_for_storage, test_score, test_session};
     use crate::types::TestOutcome;
     use proptest::prelude::*;
-    use rstest::rstest;
     use std::time::Duration;
 
     fn make_test_run(name: &str, outcome: TestOutcome) -> TestRun {
@@ -485,26 +492,23 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    #[rstest]
-    #[case(TestOutcome::Passed)]
-    #[case(TestOutcome::Failed)]
-    #[case(TestOutcome::Timeout)]
-    #[case(TestOutcome::Panic)]
     #[tokio::test]
-    async fn store_and_retrieve_test_run(#[case] outcome: TestOutcome) {
+    async fn store_and_retrieve_preserves_fields() {
         let storage = setup();
         let session = test_session("abc123", "main");
         storage.store_session(&session).await.unwrap();
 
-        let run = make_test_run("tests::example", outcome);
+        let run = make_test_run("tests::example", TestOutcome::Passed);
         storage.store_test_run(&run, &session.id).await.unwrap();
 
         let retrieved = storage.get_test_runs("tests::example", 10).await.unwrap();
         assert_eq!(retrieved.len(), 1);
         assert_eq!(retrieved[0].test_name, "tests::example");
-        assert_eq!(retrieved[0].outcome, outcome);
+        assert_eq!(retrieved[0].outcome, TestOutcome::Passed);
         assert_eq!(retrieved[0].retry_count, 0);
         assert_eq!(retrieved[0].duration, Duration::from_millis(42));
+        assert_eq!(retrieved[0].commit_hash, "abc123");
+        assert_eq!(retrieved[0].branch, "main");
     }
 
     #[tokio::test]
@@ -616,6 +620,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn purge_removes_empty_old_sessions_keeps_active_ones() {
+        let storage = setup();
+
+        let mut old_session = test_session("old", "main");
+        old_session.started_at = Utc::now() - chrono::Duration::days(100);
+        storage.store_session(&old_session).await.unwrap();
+        let mut old_run = make_test_run("tests::ancient", TestOutcome::Passed);
+        old_run.timestamp = Utc::now() - chrono::Duration::days(100);
+        storage
+            .store_test_run(&old_run, &old_session.id)
+            .await
+            .unwrap();
+
+        let mut mixed_session = test_session("mixed", "main");
+        mixed_session.started_at = Utc::now() - chrono::Duration::days(100);
+        storage.store_session(&mixed_session).await.unwrap();
+        let recent_run = make_test_run("tests::recent", TestOutcome::Passed);
+        storage
+            .store_test_run(&recent_run, &mixed_session.id)
+            .await
+            .unwrap();
+
+        storage.purge_older_than(30).await.unwrap();
+
+        let sessions = storage.get_recent_sessions(10).await.unwrap();
+        assert_eq!(sessions.len(), 1);
+        assert_eq!(sessions[0].id, mixed_session.id);
+    }
+
+    #[tokio::test]
     async fn get_test_runs_respects_limit() {
         let storage = setup();
         let session = test_session("abc", "main");
@@ -640,10 +674,17 @@ mod tests {
         ]
     }
 
+    fn test_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+    }
+
     proptest! {
         #[test]
         fn store_retrieve_preserves_outcome(outcome in arb_outcome()) {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = test_runtime();
             let storage = setup();
             let session = test_session("abc", "main");
             rt.block_on(storage.store_session(&session)).unwrap();
@@ -658,7 +699,7 @@ mod tests {
 
         #[test]
         fn store_n_runs_retrieve_correct_count(n in 1u32..20) {
-            let rt = tokio::runtime::Runtime::new().unwrap();
+            let rt = test_runtime();
             let storage = setup();
             let session = test_session("abc", "main");
             rt.block_on(storage.store_session(&session)).unwrap();

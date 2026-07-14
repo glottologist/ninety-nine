@@ -5,6 +5,7 @@ pub mod parser;
 
 use std::collections::HashSet;
 
+use crate::detector::BayesianDetector;
 use crate::error::NinetyNineError;
 use crate::filter::ast::FilterExpr;
 use crate::filter::eval::EvalContext;
@@ -29,10 +30,11 @@ pub async fn build_eval_context(
     storage: &impl Storage,
     confidence: f64,
 ) -> Result<EvalContext, NinetyNineError> {
+    let detector = BayesianDetector::new(confidence);
     let scores = storage.get_all_scores().await?;
     let flaky_tests: HashSet<String> = scores
         .iter()
-        .filter(|s| s.probability_flaky > 0.01 && s.confidence >= confidence)
+        .filter(|s| detector.is_flaky(s))
         .map(|s| s.test_name.to_string())
         .collect();
 

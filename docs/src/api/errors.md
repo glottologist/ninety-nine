@@ -8,7 +8,6 @@ A comprehensive error enum covering all failure modes, derived with `thiserror`.
 
 ```rust
 pub enum NinetyNineError {
-    ConfigNotFound { path: PathBuf },
     ConfigParse { source: toml::de::Error },
     ConfigIo { path: PathBuf, source: std::io::Error },
     NoRunnerAvailable,
@@ -32,7 +31,6 @@ pub enum NinetyNineError {
 
 | Variant | Display Message | Cause |
 |---------|----------------|-------|
-| `ConfigNotFound` | `config file not found: {path}` | `.ninety-nine.toml` does not exist at the expected path |
 | `ConfigParse` | `failed to parse config: {source}` | TOML syntax error or invalid field value |
 | `ConfigIo` | `failed to read config file {path}: {source}` | File exists but cannot be read (permissions, etc.) |
 | `InvalidConfig` | `invalid configuration: {message}` | Logical configuration error (e.g., Postgres backend without connection config) |

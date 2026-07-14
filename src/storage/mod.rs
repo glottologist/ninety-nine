@@ -125,7 +125,9 @@ pub trait Storage: Send + Sync {
     /// Returns a storage error if the query fails.
     async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError>;
 
-    /// Deletes test runs older than the specified number of days.
+    /// Deletes test runs older than the specified number of days, along with
+    /// any sessions older than the cutoff that no longer own any runs.
+    /// Returns the number of test runs deleted.
     ///
     /// # Errors
     ///
@@ -201,9 +203,20 @@ mod tests {
         }
 
         #[test]
-        fn parse_timestamp_always_returns_valid_datetime(s in ".*") {
-            let dt = parse_timestamp(&s);
-            assert!(dt.timestamp() > 0);
+        fn parse_timestamp_roundtrips_valid_rfc3339(secs in 0i64..4_102_444_800) {
+            let original = chrono::DateTime::from_timestamp(secs, 0).unwrap();
+            let parsed = parse_timestamp(&original.to_rfc3339());
+            prop_assert_eq!(parsed, original);
+        }
+
+        #[test]
+        fn parse_timestamp_falls_back_to_now_on_garbage(s in "[^0-9]{0,40}") {
+            // Nothing free of digits is valid RFC3339, so the fallback branch
+            // must produce a current timestamp rather than an error.
+            let before = chrono::Utc::now();
+            let parsed = parse_timestamp(&s);
+            let after = chrono::Utc::now();
+            prop_assert!(parsed >= before && parsed <= after);
         }
     }
 

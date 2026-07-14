@@ -5,14 +5,37 @@ use crate::filter::ast::{FilterExpr, Predicate};
 use crate::filter::lexer::Token;
 use crate::runner::binary::BinaryKind;
 
+/// Maximum `!`/parenthesis nesting; beyond this the recursive-descent
+/// parser would risk stack overflow on pathological input.
+const MAX_NESTING_DEPTH: usize = 64;
+
 struct Parser {
     tokens: Vec<Token>,
     pos: usize,
+    depth: usize,
 }
 
 impl Parser {
     const fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+        Self {
+            tokens,
+            pos: 0,
+            depth: 0,
+        }
+    }
+
+    fn enter_nesting(&mut self) -> Result<(), NinetyNineError> {
+        self.depth += 1;
+        if self.depth > MAX_NESTING_DEPTH {
+            return Err(NinetyNineError::FilterParse {
+                message: format!("filter expression nests deeper than {MAX_NESTING_DEPTH} levels"),
+            });
+        }
+        Ok(())
+    }
+
+    const fn leave_nesting(&mut self) {
+        self.depth = self.depth.saturating_sub(1);
     }
 
     fn peek(&self) -> Option<&Token> {
@@ -42,29 +65,31 @@ impl Parser {
         self.parse_binary(left)
     }
 
-    fn parse_binary(&mut self, left: FilterExpr) -> Result<FilterExpr, NinetyNineError> {
-        match self.peek() {
-            Some(Token::And) => {
-                self.advance();
-                let right = self.parse_unary()?;
-                let combined = FilterExpr::And(vec![left, right]);
-                self.parse_binary(combined)
+    fn parse_binary(&mut self, mut left: FilterExpr) -> Result<FilterExpr, NinetyNineError> {
+        loop {
+            match self.peek() {
+                Some(Token::And) => {
+                    self.advance();
+                    let right = self.parse_unary()?;
+                    left = FilterExpr::And(vec![left, right]);
+                }
+                Some(Token::Or) => {
+                    self.advance();
+                    let right = self.parse_unary()?;
+                    left = FilterExpr::Or(vec![left, right]);
+                }
+                _ => return Ok(left),
             }
-            Some(Token::Or) => {
-                self.advance();
-                let right = self.parse_unary()?;
-                let combined = FilterExpr::Or(vec![left, right]);
-                self.parse_binary(combined)
-            }
-            _ => Ok(left),
         }
     }
 
     fn parse_unary(&mut self) -> Result<FilterExpr, NinetyNineError> {
         if matches!(self.peek(), Some(Token::Not)) {
             self.advance();
-            let expr = self.parse_unary()?;
-            return Ok(FilterExpr::Not(Box::new(expr)));
+            self.enter_nesting()?;
+            let expr = self.parse_unary();
+            self.leave_nesting();
+            return Ok(FilterExpr::Not(Box::new(expr?)));
         }
         self.parse_primary()
     }
@@ -73,7 +98,10 @@ impl Parser {
         match self.peek() {
             Some(Token::LParen) => {
                 self.advance();
-                let expr = self.parse_expr()?;
+                self.enter_nesting()?;
+                let expr = self.parse_expr();
+                self.leave_nesting();
+                let expr = expr?;
                 self.expect_token(&Token::RParen)?;
                 Ok(expr)
             }
@@ -222,6 +250,28 @@ mod tests {
     #[case("test([invalid)", false)]
     fn parses_expressions(#[case] input: &str, #[case] expected_ok: bool) {
         assert_eq!(parse_str(input).is_ok(), expected_ok, "input: {input}");
+    }
+
+    #[rstest]
+    #[case(63, true)]
+    #[case(100, false)]
+    fn nesting_depth_is_capped(#[case] negations: usize, #[case] expected_ok: bool) {
+        let input = format!("{}flaky", "!".repeat(negations));
+        assert_eq!(parse_str(&input).is_ok(), expected_ok);
+    }
+
+    #[test]
+    fn deep_parenthesis_nesting_is_rejected() {
+        let input = format!("{}flaky{}", "(".repeat(200), ")".repeat(200));
+        assert!(parse_str(&input).is_err());
+    }
+
+    #[test]
+    fn long_flat_operator_chains_still_parse() {
+        let input = std::iter::repeat_n("flaky", 500)
+            .collect::<Vec<_>>()
+            .join(" & ");
+        assert!(parse_str(&input).is_ok());
     }
 
     proptest! {

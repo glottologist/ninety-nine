@@ -1,51 +1,9 @@
 use which::which;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AvailableRunner {
-    Nextest,
-    CargoTest,
-}
-
-impl std::fmt::Display for AvailableRunner {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Nextest => write!(f, "cargo-nextest"),
-            Self::CargoTest => write!(f, "cargo test"),
-        }
-    }
-}
-
+/// Returns whether `cargo` is on PATH. The native runner builds test
+/// binaries via `cargo test --no-run` and executes them directly, so cargo
+/// is the only external tool required.
 #[must_use]
-pub fn detect_available_runner() -> Option<AvailableRunner> {
-    if is_nextest_available() {
-        Some(AvailableRunner::Nextest)
-    } else if is_cargo_available() {
-        Some(AvailableRunner::CargoTest)
-    } else {
-        None
-    }
-}
-
-#[must_use]
-pub fn is_nextest_available() -> bool {
-    which("cargo-nextest").is_ok()
-}
-
-#[must_use]
-pub fn is_cargo_available() -> bool {
+pub fn cargo_available() -> bool {
     which("cargo").is_ok()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn detect_returns_some_runner() {
-        let runner = detect_available_runner();
-        assert!(
-            runner.is_some(),
-            "at least cargo should be available in dev environment"
-        );
-    }
 }

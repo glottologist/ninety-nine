@@ -28,7 +28,7 @@ use cargo_ninety_nine::orchestrator::{
 };
 use cargo_ninety_nine::runner::executor::ExecutionConfig;
 use cargo_ninety_nine::runner::listing::TestCase;
-use cargo_ninety_nine::runner::{RunnerBackend, detect_available_runner};
+use cargo_ninety_nine::runner::{RunnerBackend, cargo_available};
 use cargo_ninety_nine::storage::{Storage, StorageBackend, open_storage};
 use cargo_ninety_nine::types::ActiveSession;
 
@@ -119,7 +119,7 @@ async fn run(
         }
         Commands::Export { format, path } => {
             let storage = open_storage(&config).await?;
-            run_export(&storage, format, &path).await
+            run_export(&storage, &config, format, &path).await
         }
         Commands::Quarantine(subcmd) => {
             let storage = open_storage(&config).await?;
@@ -135,7 +135,9 @@ async fn run_test(
     storage: &StorageBackend,
     opts: &TestOpts<'_>,
 ) -> Result<(), NinetyNineError> {
-    detect_available_runner().ok_or(NinetyNineError::NoRunnerAvailable)?;
+    if !cargo_available() {
+        return Err(NinetyNineError::NoRunnerAvailable);
+    }
 
     let backend = build_backend(config, project_dir);
     let Some(tests) = discover_and_filter_tests(&backend, storage, opts).await? else {
@@ -154,6 +156,7 @@ async fn run_test(
         opts.iterations,
         &detector,
         &session,
+        config.detection.duration_regression.as_ref(),
     )
     .await?;
 
@@ -162,6 +165,7 @@ async fn run_test(
         results.pass_count,
         results.flaky_count,
         results.fail_count,
+        results.skip_count,
     );
     print_duration_regression_summary(results.duration_regressions.len());
 
@@ -283,7 +287,14 @@ async fn run_status(
         let trend = calculate_trend(name, &runs, config.detection.window_size);
         let patterns = detect_patterns(&runs);
 
-        print_test_detail(&score, &runs, trend.as_ref(), &patterns, output_format);
+        print_test_detail(
+            &score,
+            &runs,
+            trend.as_ref(),
+            &patterns,
+            output_format,
+            config.detection.confidence_threshold,
+        );
     } else if non_interactive {
         let scores = storage.get_all_scores().await?;
         print_flakiness_report(
@@ -305,15 +316,17 @@ async fn run_status(
 
 async fn run_export(
     storage: &StorageBackend,
+    config: &Config,
     format: ExportFormat,
     path: &Path,
 ) -> Result<(), NinetyNineError> {
     let scores = storage.get_all_scores().await?;
+    let threshold = config.detection.confidence_threshold;
 
     match format {
-        ExportFormat::Junit => export_junit(&scores, path)?,
-        ExportFormat::Html => export_html(&scores, path)?,
-        ExportFormat::Csv => export_csv(&scores, path)?,
+        ExportFormat::Junit => export_junit(&scores, path, threshold)?,
+        ExportFormat::Html => export_html(&scores, path, threshold)?,
+        ExportFormat::Csv => export_csv(&scores, path, threshold)?,
         ExportFormat::Json => export_json(&scores, path)?,
     }
 

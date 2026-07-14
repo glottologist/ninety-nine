@@ -63,14 +63,7 @@ Start strict and relax gradually based on your team's tolerance.
 
 ### Quarantine Review Cadence
 
-Set `max_quarantine_days` to force periodic review:
-
-```toml
-[quarantine]
-max_quarantine_days = 14  # review every 2 weeks
-```
-
-During review:
+Quarantine entries persist until removed, so agree a review cadence with your team — fortnightly works well — and walk the list each time:
 1. `cargo ninety-nine quarantine list` — see all quarantined tests
 2. Re-run quarantined tests: `cargo ninety-nine test "quarantined()"`
 3. Remove fixed tests: `cargo ninety-nine quarantine remove <test_name>`

@@ -50,7 +50,6 @@ pub struct Config {
     pub quarantine: QuarantineConfig,
     pub storage: StorageConfig,
     pub reporting: ReportingConfig,
-    pub ci: CiConfig,
 }
 ```
 
@@ -63,8 +62,6 @@ pub struct DetectionConfig {
     pub min_runs: u32,
     pub confidence_threshold: f64,
     pub window_size: u32,
-    pub detection_methods: Vec<DetectionMethod>,
-    pub auto_detect: bool,
     pub parallel_runs: u32,
     pub duration_regression: Option<DurationRegressionConfig>,
 }
@@ -75,10 +72,8 @@ pub struct DetectionConfig {
 | `min_runs` | 10 | Minimum iterations per test |
 | `confidence_threshold` | 0.95 | Statistical confidence required to classify as flaky |
 | `window_size` | 100 | Maximum historical runs to consider |
-| `detection_methods` | `[Bayesian]` | Detection algorithms to use |
-| `auto_detect` | true | Automatically run detection after tests |
 | `parallel_runs` | 3 | Number of concurrent test executions |
-| `duration_regression` | None | Optional duration regression detection config |
+| `duration_regression` | None | Duration regression tuning; `None` applies the defaults (enabled, 10-run history, 2 standard deviations) |
 
 ### `RetryConfig`
 
@@ -94,9 +89,9 @@ pub struct RetryConfig {
 
 | Field | Default | Description |
 |-------|---------|-------------|
-| `unit_test_retries` | 2 | Maximum retries per failing test |
+| `unit_test_retries` | 2 | Maximum retries per failing test; every attempt is recorded as its own run |
 | `backoff_strategy` | Exponential(100ms, 2.0x, 5000ms) | Delay strategy between retries |
-| `max_retry_time_secs` | 300 | Hard timeout across all retries |
+| `max_retry_time_secs` | 300 | Time limit for a single test execution (seconds) |
 
 ### `BackoffStrategy`
 
@@ -118,7 +113,6 @@ pub struct QuarantineConfig {
     pub enabled: bool,
     pub auto_quarantine: bool,
     pub threshold: QuarantineThreshold,
-    pub max_quarantine_days: u32,
 }
 ```
 
@@ -126,7 +120,6 @@ pub struct QuarantineConfig {
 |-------|---------|-------------|
 | `enabled` | true | Enable quarantine system |
 | `auto_quarantine` | false | Automatically quarantine tests exceeding thresholds |
-| `max_quarantine_days` | 30 | Days before quarantined tests are reviewed |
 
 ### `QuarantineThreshold`
 
@@ -197,27 +190,6 @@ pub struct ReportingConfig {
 
 pub struct ConsoleOutputConfig {
     pub summary_only: bool,  // default: false
-}
-```
-
-### `CiConfig`
-
-```rust
-pub struct CiConfig {
-    pub provider: Option<CiProvider>,
-}
-```
-
-### `CiProvider`
-
-```rust
-pub enum CiProvider {
-    GitHub,
-    GitLab,
-    Jenkins,
-    CircleCI,
-    AzureDevOps,
-    Buildkite,
 }
 ```
 

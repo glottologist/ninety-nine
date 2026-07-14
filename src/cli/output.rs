@@ -7,7 +7,7 @@ use colored::Colorize;
 use crate::detector::BayesianDetector;
 use crate::types::{
     FailurePattern, FlakinessCategory, FlakinessScore, QuarantineEntry, RunSession, TestRun,
-    TrendSummary,
+    TestVerdict, TrendSummary,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -52,6 +52,7 @@ pub fn print_run_header(test_count: usize, iterations: u32) {
 #[must_use]
 pub fn format_test_result_line(
     test_name: &str,
+    verdict: TestVerdict,
     passed: u32,
     total: u32,
     duration: Duration,
@@ -62,32 +63,30 @@ pub fn format_test_result_line(
     let name = truncate_name(test_name, 60);
     let counter = format!("[{completed}/{test_count}]").dimmed();
 
-    if passed == total {
-        format!(
-            "{counter}  {} [{passed}/{total}] [{secs:.2}s] {name}",
-            "PASS".green().bold(),
-        )
-    } else if passed == 0 {
-        format!(
-            "{counter}  {} [{passed}/{total}] [{secs:.2}s] {name}",
-            "FAIL".red().bold(),
-        )
-    } else {
-        format!(
-            "{counter} {} [{passed}/{total}] [{secs:.2}s] {name}",
-            "FLAKY".yellow().bold(),
-        )
-    }
+    let label = match verdict {
+        TestVerdict::Passed => format!(" {}", "PASS".green().bold()),
+        TestVerdict::Failed => format!(" {}", "FAIL".red().bold()),
+        TestVerdict::Flaky => format!("{}", "FLAKY".yellow().bold()),
+        TestVerdict::Skipped => format!(" {}", "SKIP".dimmed()),
+    };
+
+    format!("{counter} {label} [{passed}/{total}] [{secs:.2}s] {name}")
 }
 
-pub fn print_run_summary(total: usize, passed: usize, flaky: usize, failed: usize) {
+pub fn print_run_summary(total: usize, passed: usize, flaky: usize, failed: usize, skipped: usize) {
+    let skipped_part = if skipped > 0 {
+        format!(", {skipped} skipped")
+    } else {
+        String::new()
+    };
     println!(
-        "\n{}: {} total, {} passed, {} flaky, {} failed",
+        "\n{}: {} total, {} passed, {} flaky, {} failed{}",
         "Results".bold(),
         total,
         passed,
         flaky,
         failed,
+        skipped_part,
     );
 }
 
@@ -201,11 +200,7 @@ fn print_console_sessions(sessions: &[RunSession]) {
 
     for session in sessions {
         let date = session.started_at.format("%Y-%m-%d %H:%M:%S");
-        let commit_short = if session.commit_hash.len() >= 7 {
-            &session.commit_hash[..7]
-        } else {
-            &session.commit_hash
-        };
+        let commit_short = session.commit_hash.get(..8).unwrap_or(&session.commit_hash);
 
         println!(
             "{:<24} {:>8} {:>8} {:<16} {:<12}",
@@ -226,9 +221,12 @@ pub fn print_test_detail(
     trend: Option<&TrendSummary>,
     patterns: &[FailurePattern],
     format: OutputFormat,
+    confidence_threshold: f64,
 ) {
     match format {
-        OutputFormat::Console => print_console_test_detail(score, runs, trend, patterns),
+        OutputFormat::Console => {
+            print_console_test_detail(score, runs, trend, patterns, confidence_threshold);
+        }
         OutputFormat::Json => {
             let detail = serde_json::json!({
                 "score": score,
@@ -249,8 +247,9 @@ fn print_console_test_detail(
     runs: &[TestRun],
     trend: Option<&TrendSummary>,
     patterns: &[FailurePattern],
+    confidence_threshold: f64,
 ) {
-    let category = FlakinessCategory::from_score(score.probability_flaky);
+    let category = FlakinessCategory::from_score(score.effective_score(confidence_threshold));
 
     println!("\n{}\n", score.test_name.bold().underline());
     println!("  Category:      {}", format_category(category));
@@ -294,12 +293,13 @@ fn print_console_test_detail(
     if !runs.is_empty() {
         println!("\n  {}\n", "Recent Runs".bold());
         for run in runs.iter().take(10) {
+            let label = run.outcome.short_label();
             let symbol = match run.outcome {
-                crate::types::TestOutcome::Passed => "PASS".green(),
-                crate::types::TestOutcome::Failed => "FAIL".red(),
-                crate::types::TestOutcome::Timeout => "TIME".yellow(),
-                crate::types::TestOutcome::Panic => "PANC".red().bold(),
-                crate::types::TestOutcome::Ignored => "SKIP".dimmed(),
+                crate::types::TestOutcome::Passed => label.green(),
+                crate::types::TestOutcome::Failed => label.red(),
+                crate::types::TestOutcome::Timeout => label.yellow(),
+                crate::types::TestOutcome::Panic => label.red().bold(),
+                crate::types::TestOutcome::Ignored => label.dimmed(),
             };
             println!(
                 "    [{symbol}] {:>6}ms  {}",

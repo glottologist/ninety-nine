@@ -64,7 +64,7 @@ pub fn detect_duration_regressions(
     test_name: &str,
     runs: &[TestRun],
     min_history: usize,
-    threshold_std_devs: f64,
+    threshold: RegressionThreshold,
 ) -> Option<DurationRegression>
 ```
 
@@ -73,26 +73,33 @@ Detects if the most recent test run is significantly slower than historical runs
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `test_name` | `&str` | Name of the test |
-| `runs` | `&[TestRun]` | Historical runs (at least `min_history` required) |
-| `min_history` | `usize` | Minimum number of historical runs required |
-| `threshold_std_devs` | `f64` | Number of standard deviations above mean to trigger regression |
+| `runs` | `&[TestRun]` | Runs ordered newest first (at least `min_history` required) |
+| `min_history` | `usize` | Minimum number of runs required |
+| `threshold` | `RegressionThreshold` | How the latest duration is judged against the baseline |
+
+```rust
+pub enum RegressionThreshold {
+    StdDevs(f64),
+    Multiplier(f64),
+}
+```
 
 **Algorithm:**
 
 1. Returns `None` if fewer than `min_history` runs
-2. Computes mean and standard deviation of all run durations
-3. Returns `None` if standard deviation is near zero (all durations constant)
-4. Checks if the latest run duration exceeds `mean + (threshold × std_dev)`
+2. Computes mean and standard deviation of the historical durations (the latest run is excluded from the baseline)
+3. Returns `None` if the effective standard deviation is near zero
+4. `StdDevs(z)` flags when the latest duration exceeds `mean + z × std_dev`; `Multiplier(m)` flags when it exceeds `mean × m`
 5. Returns `DurationRegression` with deviation statistics
 
 ### `DurationRegression`
 
 ```rust
 pub struct DurationRegression {
-    pub test_name: String,
-    pub current_ms: i64,
-    pub mean_ms: i64,
-    pub std_dev_ms: i64,
+    pub test_name: TestName,
+    pub current_ms: f64,
+    pub mean_ms: f64,
+    pub std_dev_ms: f64,
     pub deviation_factor: f64,
 }
 ```
@@ -146,7 +153,10 @@ if let Some(trend) = calculate_trend("tests::my_test", &runs, 100) {
 }
 
 // Duration regression
-if let Some(reg) = detect_duration_regressions("tests::my_test", &runs, 5, 2.0) {
+use cargo_ninety_nine::analysis::duration::RegressionThreshold;
+if let Some(reg) =
+    detect_duration_regressions("tests::my_test", &runs, 5, RegressionThreshold::StdDevs(2.0))
+{
     println!("SLOW: {}ms vs mean {}ms ({:.1}x std_dev)",
         reg.current_ms, reg.mean_ms, reg.deviation_factor);
 }

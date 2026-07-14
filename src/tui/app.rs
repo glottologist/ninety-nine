@@ -68,10 +68,10 @@ impl SessionSortField {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppMode {
     Browse,
-    Detail(usize),
+    Detail,
 }
 
 pub struct DetailData {
@@ -234,14 +234,9 @@ impl ScoresApp {
             .map(|&i| &self.scores[i])
     }
 
-    #[must_use]
-    pub fn selected_index(&self) -> usize {
-        self.table_state.selected().unwrap_or(0)
-    }
-
     pub fn enter_detail(&mut self, detail: DetailData) {
         self.detail = Some(detail);
-        self.mode = AppMode::Detail(self.selected_index());
+        self.mode = AppMode::Detail;
     }
 
     pub fn exit_detail(&mut self) {
@@ -427,9 +422,8 @@ impl HistoryApp {
     }
 
     pub fn enter_detail(&mut self, detail: SessionDetail) {
-        let idx = self.table_state.selected().unwrap_or(0);
         self.detail = Some(detail);
-        self.mode = AppMode::Detail(idx);
+        self.mode = AppMode::Detail;
     }
 
     pub fn exit_detail(&mut self) {
@@ -471,8 +465,68 @@ impl HistoryApp {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::test_score;
+    use crate::test_helpers::{test_run, test_score};
     use proptest::prelude::*;
+    use rstest::rstest;
+    use std::time::Duration;
+
+    fn sample_session_runs() -> Vec<TestRun> {
+        let outcomes = [
+            ("tests::zeta", TestOutcome::Failed),
+            ("tests::alpha", TestOutcome::Passed),
+            ("tests::mid", TestOutcome::Timeout),
+            ("tests::beta", TestOutcome::Panic),
+            ("tests::omega", TestOutcome::Ignored),
+        ];
+        outcomes
+            .iter()
+            .enumerate()
+            .map(|(i, (name, outcome))| {
+                let mut run = test_run(name, *outcome);
+                run.duration = Duration::from_millis((u64::try_from(i).unwrap_or(0) + 1) * 10);
+                run.retry_count = u32::try_from(outcomes.len() - i).unwrap_or(0);
+                run
+            })
+            .collect()
+    }
+
+    #[test]
+    fn session_detail_filter_narrows_to_outcome() {
+        let mut detail = SessionDetail::new(sample_session_runs());
+        detail.cycle_filter();
+        assert_eq!(detail.filter_outcome, Some(TestOutcome::Passed));
+        assert_eq!(detail.filtered.len(), 1);
+        assert!(
+            detail
+                .filtered
+                .iter()
+                .all(|&i| detail.runs[i].outcome == TestOutcome::Passed)
+        );
+    }
+
+    #[rstest]
+    #[case(SessionSortField::Name)]
+    #[case(SessionSortField::Outcome)]
+    #[case(SessionSortField::Duration)]
+    #[case(SessionSortField::Retries)]
+    fn session_detail_sort_orders_filtered(#[case] field: SessionSortField) {
+        let mut detail = SessionDetail::new(sample_session_runs());
+        detail.sort_field = field;
+        detail.sort_ascending = true;
+        detail.sort_filtered();
+        for window in detail.filtered.windows(2) {
+            let (a, b) = (&detail.runs[window[0]], &detail.runs[window[1]]);
+            let ordered = match field {
+                SessionSortField::Name => a.test_name.as_ref() <= b.test_name.as_ref(),
+                SessionSortField::Outcome => {
+                    outcome_ordinal(a.outcome) <= outcome_ordinal(b.outcome)
+                }
+                SessionSortField::Duration => a.duration <= b.duration,
+                SessionSortField::Retries => a.retry_count <= b.retry_count,
+            };
+            assert!(ordered, "not ordered by {field:?}");
+        }
+    }
 
     fn sample_scores() -> Vec<FlakinessScore> {
         vec![
@@ -532,7 +586,7 @@ mod tests {
             patterns: Vec::new(),
         };
         app.enter_detail(detail);
-        assert_eq!(app.mode, AppMode::Detail(1));
+        assert_eq!(app.mode, AppMode::Detail);
         assert!(app.detail.is_some());
 
         app.exit_detail();
@@ -601,6 +655,38 @@ mod tests {
                     prop_assert!(window[0] >= window[1]);
                 }
             }
+        }
+
+        #[test]
+        fn session_detail_cursor_never_exceeds_bounds(
+            use_empty in proptest::bool::ANY,
+            moves_down in 0u32..200,
+            moves_up in 0u32..200,
+        ) {
+            let runs = if use_empty { Vec::new() } else { sample_session_runs() };
+            let mut detail = SessionDetail::new(runs);
+            for _ in 0..moves_down {
+                detail.move_down();
+            }
+            for _ in 0..moves_up {
+                detail.move_up();
+            }
+            if detail.filtered.is_empty() {
+                prop_assert!(detail.table_state.selected().is_none());
+            } else {
+                let sel = detail.table_state.selected().unwrap_or(0);
+                prop_assert!(sel < detail.filtered.len());
+            }
+        }
+
+        #[test]
+        fn session_detail_filter_cycles_back(n in 1u32..10) {
+            let mut detail = SessionDetail::new(sample_session_runs());
+            prop_assert_eq!(detail.filter_outcome, None);
+            for _ in 0..(n * 6) {
+                detail.cycle_filter();
+            }
+            prop_assert_eq!(detail.filter_outcome, None);
         }
 
         #[test]

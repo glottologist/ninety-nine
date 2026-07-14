@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
-use super::{ms_to_duration, parse_timestamp};
+use super::ms_to_duration;
 use crate::types::{
     BayesianParams, FlakinessScore, TestEnvironment, TestName, TestOutcome, TestRun,
 };
@@ -14,7 +15,7 @@ pub struct RawTestRunRow {
     pub test_path: String,
     pub outcome: String,
     pub duration_ms: i64,
-    pub timestamp: String,
+    pub timestamp: DateTime<Utc>,
     pub commit_hash: String,
     pub branch: String,
     pub retry_count: u32,
@@ -45,7 +46,7 @@ impl RawTestRunRow {
             test_path: PathBuf::from(self.test_path),
             outcome,
             duration: ms_to_duration(self.duration_ms),
-            timestamp: parse_timestamp(&self.timestamp),
+            timestamp: self.timestamp,
             commit_hash: self.commit_hash,
             branch: self.branch,
             environment: TestEnvironment {
@@ -71,7 +72,7 @@ pub struct RawScoreRow {
     pub fail_rate: f64,
     pub total_runs: u64,
     pub consecutive_failures: u32,
-    pub last_updated: String,
+    pub last_updated: DateTime<Utc>,
     pub alpha: f64,
     pub beta: f64,
     pub posterior_mean: f64,
@@ -88,7 +89,7 @@ fn default_raw_test_run() -> RawTestRunRow {
         test_path: "/tmp/bin".to_string(),
         outcome: "passed".to_string(),
         duration_ms: 10,
-        timestamp: "2026-01-01T00:00:00Z".to_string(),
+        timestamp: chrono::TimeZone::with_ymd_and_hms(&Utc, 2026, 1, 1, 0, 0, 0).unwrap(),
         commit_hash: String::new(),
         branch: String::new(),
         retry_count: 0,
@@ -113,7 +114,7 @@ impl RawScoreRow {
             fail_rate: self.fail_rate,
             total_runs: self.total_runs,
             consecutive_failures: self.consecutive_failures,
-            last_updated: parse_timestamp(&self.last_updated),
+            last_updated: self.last_updated,
             bayesian_params: BayesianParams {
                 alpha: self.alpha,
                 beta: self.beta,

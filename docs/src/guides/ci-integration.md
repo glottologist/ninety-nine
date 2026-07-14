@@ -34,21 +34,9 @@ The generated job:
 - Runs detection and exports JUnit XML
 - Publishes JUnit artifacts for GitLab's test report
 
-## fail_on_flaky
+## Failure Behaviour
 
-The `ci.fail_on_flaky` config option controls whether the CI step fails when flaky tests are detected:
-
-```toml
-[ci]
-fail_on_flaky = true
-```
-
-| Value | GitHub Actions | GitLab CI |
-|-------|---------------|-----------|
-| `false` (default) | Adds `continue-on-error: true` | Adds `allow_failure: true` |
-| `true` | Step fails normally | Step fails normally |
-
-When `fail_on_flaky = true`, the `detect` command exits with a non-zero status code if any test is classified as flaky by the Bayesian detector.
+Generated workflows never fail the pipeline on flaky tests: the GitHub Actions job carries `continue-on-error: true` and the GitLab job carries `allow_failure: true`, so detection results arrive as reports rather than as red builds. Remove those lines from the generated file if you would rather have flaky detections break the build.
 
 ## Manual CI Setup
 
@@ -64,8 +52,6 @@ cargo ninety-nine test -n 20 --confidence 0.95
 # Export for CI test report parsing
 cargo ninety-nine export junit flaky-results.xml
 
-# Exit non-zero if flaky (optional, set in config)
-# Or check the exit code of detect when fail_on_flaky = true
 ```
 
 ## Environment Detection

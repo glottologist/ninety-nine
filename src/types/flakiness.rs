@@ -29,12 +29,16 @@ pub struct BayesianParams {
 impl FlakinessScore {
     /// Returns the score used for display and categorisation.
     ///
-    /// When confidence is below the threshold, the Bayesian posterior is
-    /// dominated by the prior and misleading. Fall back to the observed
+    /// A test with no observed failures scores zero outright — the Bayesian
+    /// posterior never reaches zero and would otherwise miscategorise long
+    /// clean histories. When confidence is below the threshold, the posterior
+    /// is dominated by the prior and misleading; fall back to the observed
     /// fail rate instead.
     #[must_use]
     pub fn effective_score(&self, confidence_threshold: f64) -> f64 {
-        if self.confidence >= confidence_threshold {
+        if self.fail_rate <= 0.0 {
+            0.0
+        } else if self.confidence >= confidence_threshold {
             self.probability_flaky
         } else {
             self.fail_rate
@@ -100,11 +104,29 @@ mod tests {
             score.fail_rate = fail_rate;
 
             let effective = score.effective_score(threshold);
-            if confidence >= threshold {
+            if fail_rate <= 0.0 {
+                prop_assert!((effective - 0.0).abs() < f64::EPSILON);
+            } else if confidence >= threshold {
                 prop_assert!((effective - probability).abs() < f64::EPSILON);
             } else {
                 prop_assert!((effective - fail_rate).abs() < f64::EPSILON);
             }
+        }
+
+        #[test]
+        fn zero_failures_always_scores_stable(
+            probability in 0.0f64..=1.0,
+            confidence in 0.0f64..=1.0,
+            threshold in 0.0f64..=1.0,
+        ) {
+            let mut score = test_score("test", probability);
+            score.confidence = confidence;
+            score.fail_rate = 0.0;
+
+            prop_assert_eq!(
+                FlakinessCategory::from_score(score.effective_score(threshold)),
+                FlakinessCategory::Stable
+            );
         }
 
         #[test]

@@ -2,9 +2,6 @@ use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum NinetyNineError {
-    #[error("config file not found: {path}")]
-    ConfigNotFound { path: PathBuf },
-
     #[error("failed to parse config: {source}")]
     ConfigParse {
         #[source]
@@ -18,7 +15,7 @@ pub enum NinetyNineError {
         source: std::io::Error,
     },
 
-    #[error("no test runner available: install cargo-nextest or use cargo test")]
+    #[error("no test runner available: cargo was not found in PATH")]
     NoRunnerAvailable,
 
     #[error("runner execution failed: {message}")]

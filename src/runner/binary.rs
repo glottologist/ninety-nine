@@ -78,7 +78,7 @@ fn parse_cargo_messages(json_bytes: &[u8]) -> Result<Vec<TestBinary>, NinetyNine
 
             binaries.push(TestBinary {
                 path: executable,
-                package_name: artifact.package_id.repr.clone(), // clone: needed to extract from parsed artifact
+                package_name: package_name_from_id(&artifact.package_id.repr),
                 binary_name: artifact.target.name.clone(), // clone: needed to extract from parsed artifact
                 kind,
             });
@@ -86,6 +86,27 @@ fn parse_cargo_messages(json_bytes: &[u8]) -> Result<Vec<TestBinary>, NinetyNine
     }
 
     Ok(binaries)
+}
+
+/// Extracts the bare package name from a cargo package-ID.
+///
+/// Handles both the pre-1.77 form `name version (source)` and the spec form
+/// `source#name@version`, where the fragment collapses to a bare version
+/// when the name equals the last path segment of the source URL.
+fn package_name_from_id(repr: &str) -> String {
+    if let Some((name, rest)) = repr.split_once(' ') {
+        if rest.contains('(') {
+            return name.to_string();
+        }
+    }
+
+    match repr.rsplit_once('#') {
+        Some((url, fragment)) => match fragment.rsplit_once('@') {
+            Some((name, _version)) => name.to_string(),
+            None => url.rsplit('/').next().unwrap_or(repr).to_string(),
+        },
+        None => repr.to_string(),
+    }
 }
 
 fn classify_artifact_kind(kinds: &[TargetKind]) -> BinaryKind {
@@ -120,12 +141,32 @@ mod tests {
         assert_eq!(classify_artifact_kind(kinds), expected);
     }
 
+    #[rstest]
+    #[case("path+file:///home/user/proj#0.3.4", "proj")]
+    #[case("path+file:///home/user/proj#alt-name@0.3.4", "alt-name")]
+    #[case(
+        "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.219",
+        "serde"
+    )]
+    #[case(
+        "cargo-ninety-nine 0.3.4 (path+file:///home/user/proj)",
+        "cargo-ninety-nine"
+    )]
+    fn package_name_extracted_from_all_id_formats(#[case] repr: &str, #[case] expected: &str) {
+        assert_eq!(package_name_from_id(repr), expected);
+    }
+
     proptest! {
         #[test]
         fn parse_cargo_messages_never_panics_on_arbitrary_bytes(
             data in proptest::collection::vec(any::<u8>(), 0..512)
         ) {
             let _ = parse_cargo_messages(&data);
+        }
+
+        #[test]
+        fn package_name_from_id_never_panics(repr in ".{0,120}") {
+            let _ = package_name_from_id(&repr);
         }
     }
 }

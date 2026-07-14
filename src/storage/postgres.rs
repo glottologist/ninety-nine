@@ -156,10 +156,6 @@ impl PostgresStorage {
     }
 }
 
-fn parse_timestamp(s: &str) -> DateTime<Utc> {
-    super::parse_timestamp(s)
-}
-
 impl Storage for PostgresStorage {
     async fn store_session(&self, session: &RunSession) -> Result<(), NinetyNineError> {
         let client = self.get_client().await?;
@@ -177,8 +173,8 @@ impl Storage for PostgresStorage {
                         branch = EXCLUDED.branch",
                     &[
                         &session.id.to_string(),
-                        &session.started_at.to_rfc3339(),
-                        &session.finished_at.map(|dt| dt.to_rfc3339()),
+                        &session.started_at,
+                        &session.finished_at,
                         &i32::try_from(session.test_count).unwrap_or(i32::MAX),
                         &i32::try_from(session.flaky_count).unwrap_or(i32::MAX),
                         &session.commit_hash,
@@ -202,7 +198,7 @@ impl Storage for PostgresStorage {
                 .execute(
                     "UPDATE run_sessions SET finished_at = $1, test_count = $2, flaky_count = $3 WHERE id = $4",
                     &[
-                        &Utc::now().to_rfc3339(),
+                        &Utc::now(),
                         &i32::try_from(test_count).unwrap_or(i32::MAX),
                         &i32::try_from(flaky_count).unwrap_or(i32::MAX),
                         &session_id.to_string(),
@@ -233,7 +229,7 @@ impl Storage for PostgresStorage {
                         &run.test_path.to_string_lossy().into_owned(),
                         &run.outcome.to_string(),
                         &duration_to_ms(run.duration),
-                        &run.timestamp.to_rfc3339(),
+                        &run.timestamp,
                         &run.commit_hash,
                         &run.branch,
                         &i32::try_from(run.retry_count).unwrap_or(i32::MAX),
@@ -284,7 +280,7 @@ impl Storage for PostgresStorage {
                         &score.fail_rate,
                         &i64::try_from(score.total_runs).unwrap_or(i64::MAX),
                         &i32::try_from(score.consecutive_failures).unwrap_or(i32::MAX),
-                        &score.last_updated.to_rfc3339(),
+                        &score.last_updated,
                         &score.bayesian_params.alpha,
                         &score.bayesian_params.beta,
                         &score.bayesian_params.posterior_mean,
@@ -336,22 +332,21 @@ impl Storage for PostgresStorage {
 
         let mut sessions = Vec::with_capacity(rows.len());
         for row in &rows {
-            let id_str: String = row.get(0);
-            let started_str: String = row.get(1);
-            let finished_str: Option<String> = row.get(2);
-            let test_count: i32 = row.get(3);
-            let flaky_count: i32 = row.get(4);
-            let commit_hash: String = row.get(5);
-            let branch: String = row.get(6);
+            let id_str: String = row.get("id");
+            let test_count: i32 = row.get("test_count");
+            let flaky_count: i32 = row.get("flaky_count");
 
             sessions.push(RunSession {
-                id: Uuid::parse_str(&id_str).unwrap_or_else(|_| Uuid::new_v4()),
-                started_at: parse_timestamp(&started_str),
-                finished_at: finished_str.map(|s| parse_timestamp(&s)),
+                id: Uuid::parse_str(&id_str).unwrap_or_else(|e| {
+                    tracing::warn!(id = %id_str, error = %e, "corrupt session UUID in storage, generating new");
+                    Uuid::new_v4()
+                }),
+                started_at: row.get("started_at"),
+                finished_at: row.get("finished_at"),
                 test_count: u32::try_from(test_count).unwrap_or(0),
                 flaky_count: u32::try_from(flaky_count).unwrap_or(0),
-                commit_hash,
-                branch,
+                commit_hash: row.get("commit_hash"),
+                branch: row.get("branch"),
             });
         }
         Ok(sessions)
@@ -413,7 +408,7 @@ impl Storage for PostgresStorage {
                         auto_quarantined = EXCLUDED.auto_quarantined",
                     &[
                         &test_name,
-                        &Utc::now().to_rfc3339(),
+                        &Utc::now(),
                         &reason,
                         &score,
                         &auto,
@@ -447,18 +442,12 @@ impl Storage for PostgresStorage {
 
         let mut entries = Vec::with_capacity(rows.len());
         for row in &rows {
-            let test_name = TestName::from(row.get::<_, String>(0));
-            let quarantined_str: String = row.get(1);
-            let reason: String = row.get(2);
-            let flakiness_score: f64 = row.get(3);
-            let auto_quarantined: bool = row.get(4);
-
             entries.push(QuarantineEntry {
-                test_name,
-                quarantined_at: parse_timestamp(&quarantined_str),
-                reason,
-                flakiness_score,
-                auto_quarantined,
+                test_name: TestName::from(row.get::<_, String>("test_name")),
+                quarantined_at: row.get("quarantined_at"),
+                reason: row.get("reason"),
+                flakiness_score: row.get("flakiness_score"),
+                auto_quarantined: row.get("auto_quarantined"),
             });
         }
         Ok(entries)
@@ -502,11 +491,21 @@ impl Storage for PostgresStorage {
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError> {
         let client = self.get_client().await?;
 
-        let cutoff = Utc::now() - chrono::Duration::days(i64::from(days));
-        let cutoff_str = cutoff.to_rfc3339();
+        let cutoff: DateTime<Utc> = Utc::now() - chrono::Duration::days(i64::from(days));
 
         let count = client
-            .execute("DELETE FROM test_runs WHERE timestamp < $1", &[&cutoff_str])
+            .execute("DELETE FROM test_runs WHERE timestamp < $1", &[&cutoff])
+            .await?;
+
+        client
+            .execute(
+                "DELETE FROM run_sessions
+                 WHERE started_at < $1
+                   AND NOT EXISTS (
+                       SELECT 1 FROM test_runs WHERE test_runs.session_id = run_sessions.id
+                   )",
+                &[&cutoff],
+            )
             .await?;
 
         Ok(count)
@@ -515,41 +514,41 @@ impl Storage for PostgresStorage {
 
 fn extract_test_run(row: &tokio_postgres::Row) -> RawTestRunRow {
     RawTestRunRow {
-        id: row.get(0),
-        test_name: row.get(1),
-        test_path: row.get(2),
-        outcome: row.get(3),
-        duration_ms: row.get(4),
-        timestamp: row.get(5),
-        commit_hash: row.get(6),
-        branch: row.get(7),
-        retry_count: u32::try_from(row.get::<_, i32>(8)).unwrap_or(0),
-        error_message: row.get(9),
-        stack_trace: row.get(10),
-        env_os: row.get(11),
-        env_rust_version: row.get(12),
-        env_cpu_count: u32::try_from(row.get::<_, i32>(13)).unwrap_or(0),
-        env_memory_gb: row.get(14),
-        env_is_ci: row.get(15),
-        env_ci_provider: row.get(16),
+        id: row.get("id"),
+        test_name: row.get("test_name"),
+        test_path: row.get("test_path"),
+        outcome: row.get("outcome"),
+        duration_ms: row.get("duration_ms"),
+        timestamp: row.get("timestamp"),
+        commit_hash: row.get("commit_hash"),
+        branch: row.get("branch"),
+        retry_count: u32::try_from(row.get::<_, i32>("retry_count")).unwrap_or(0),
+        error_message: row.get("error_message"),
+        stack_trace: row.get("stack_trace"),
+        env_os: row.get("env_os"),
+        env_rust_version: row.get("env_rust_version"),
+        env_cpu_count: u32::try_from(row.get::<_, i32>("env_cpu_count")).unwrap_or(0),
+        env_memory_gb: row.get("env_memory_gb"),
+        env_is_ci: row.get("env_is_ci"),
+        env_ci_provider: row.get("env_ci_provider"),
     }
 }
 
 fn extract_score(row: &tokio_postgres::Row) -> RawScoreRow {
     RawScoreRow {
-        test_name: row.get(0),
-        probability_flaky: row.get(1),
-        confidence: row.get(2),
-        pass_rate: row.get(3),
-        fail_rate: row.get(4),
-        total_runs: u64::try_from(row.get::<_, i64>(5)).unwrap_or(0),
-        consecutive_failures: u32::try_from(row.get::<_, i32>(6)).unwrap_or(0),
-        last_updated: row.get(7),
-        alpha: row.get(8),
-        beta: row.get(9),
-        posterior_mean: row.get(10),
-        posterior_variance: row.get(11),
-        ci_lower: row.get(12),
-        ci_upper: row.get(13),
+        test_name: row.get("test_name"),
+        probability_flaky: row.get("probability_flaky"),
+        confidence: row.get("confidence"),
+        pass_rate: row.get("pass_rate"),
+        fail_rate: row.get("fail_rate"),
+        total_runs: u64::try_from(row.get::<_, i64>("total_runs")).unwrap_or(0),
+        consecutive_failures: u32::try_from(row.get::<_, i32>("consecutive_failures")).unwrap_or(0),
+        last_updated: row.get("last_updated"),
+        alpha: row.get("alpha"),
+        beta: row.get("beta"),
+        posterior_mean: row.get("posterior_mean"),
+        posterior_variance: row.get("posterior_variance"),
+        ci_lower: row.get("ci_lower"),
+        ci_upper: row.get("ci_upper"),
     }
 }

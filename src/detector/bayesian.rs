@@ -34,10 +34,13 @@ impl BayesianDetector {
 
         let total_runs = u64::from(passes + failures);
         let total_runs_f = f64::from(passes + failures);
-        let pass_rate = if total_runs > 0 {
-            f64::from(passes) / total_runs_f
+        let (pass_rate, fail_rate) = if total_runs > 0 {
+            (
+                f64::from(passes) / total_runs_f,
+                f64::from(failures) / total_runs_f,
+            )
         } else {
-            0.0
+            (0.0, 0.0)
         };
 
         let consecutive_failures = count_consecutive_trailing_failures(runs);
@@ -47,7 +50,7 @@ impl BayesianDetector {
             probability_flaky: posterior_mean,
             confidence: 1.0 - (ci_upper - ci_lower),
             pass_rate,
-            fail_rate: 1.0 - pass_rate,
+            fail_rate,
             total_runs,
             consecutive_failures,
             last_updated: Utc::now(),
@@ -62,9 +65,14 @@ impl BayesianDetector {
         }
     }
 
+    /// A test is flaky only when at least one failure has actually been
+    /// observed; the uniform prior otherwise inflates the posterior mean
+    /// above 0.01 for clean histories of 71-97 runs.
     #[must_use]
     pub fn is_flaky(&self, score: &FlakinessScore) -> bool {
-        score.probability_flaky > 0.01 && score.confidence >= self.confidence_threshold
+        score.fail_rate > 0.0
+            && score.probability_flaky > 0.01
+            && score.confidence >= self.confidence_threshold
     }
 }
 
@@ -151,7 +159,25 @@ mod tests {
         let runs = make_runs(10, 10);
         let score = detector.calculate_flakiness_score("tests::maybe", &runs);
         let flaky = detector.is_flaky(&score);
-        assert!(flaky == (score.confidence >= 0.95 && score.probability_flaky > 0.01));
+        assert!(
+            flaky
+                == (score.fail_rate > 0.0
+                    && score.confidence >= 0.95
+                    && score.probability_flaky > 0.01)
+        );
+    }
+
+    #[test]
+    fn is_flaky_never_fires_at_prior_inflation_window() {
+        let detector = BayesianDetector::new(0.95);
+        let runs = make_runs(71, 0);
+        let score = detector.calculate_flakiness_score("tests::clean", &runs);
+        assert!(
+            !detector.is_flaky(&score),
+            "71 clean passes must not be flaky (posterior mean {} confidence {})",
+            score.probability_flaky,
+            score.confidence
+        );
     }
 
     proptest! {
@@ -178,6 +204,14 @@ mod tests {
             let low = detector.calculate_flakiness_score("tests::low", &make_runs(passes, 1));
             let high = detector.calculate_flakiness_score("tests::high", &make_runs(passes, extra_failures + 1));
             prop_assert!(high.probability_flaky >= low.probability_flaky);
+        }
+
+        #[test]
+        fn zero_failures_is_never_flaky(passes in 0u32..200) {
+            let detector = BayesianDetector::new(0.95);
+            let runs = make_runs(passes, 0);
+            let score = detector.calculate_flakiness_score("tests::clean", &runs);
+            prop_assert!(!detector.is_flaky(&score));
         }
 
         #[test]

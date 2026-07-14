@@ -16,9 +16,6 @@ An empty `.ninety-nine.toml` file uses all defaults. You only need to specify va
 [detection]
 min_runs = 20
 confidence_threshold = 0.99
-
-[ci]
-fail_on_flaky = true
 ```
 
 ## Full Configuration Reference

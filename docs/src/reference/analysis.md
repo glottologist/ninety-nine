@@ -88,7 +88,7 @@ deviation = (latest_duration - historical_mean) / effective_std_dev
 
 ### Configuration
 
-Duration regression detection is disabled by default. Enable it in `.ninety-nine.toml`:
+Duration regression detection runs by default with a 10-run history requirement and a 2 standard-deviation threshold. Provide the section in `.ninety-nine.toml` to tune those values, or set `enabled = false` to switch the check off:
 
 ```toml
 [detection.duration_regression]

@@ -188,11 +188,11 @@ fn history_loop(
                 match handle_key_event(key, &app.mode) {
                     Action::MoveUp => match app.mode {
                         AppMode::Browse => app.move_up(),
-                        AppMode::Detail(_) => app.detail_move_up(),
+                        AppMode::Detail => app.detail_move_up(),
                     },
                     Action::MoveDown => match app.mode {
                         AppMode::Browse => app.move_down(),
-                        AppMode::Detail(_) => app.detail_move_down(),
+                        AppMode::Detail => app.detail_move_down(),
                     },
                     Action::CycleSort => app.detail_cycle_sort(),
                     Action::ReverseSort => app.detail_reverse_sort(),
@@ -207,7 +207,7 @@ fn history_loop(
                     }
                     Action::Back => app.exit_detail(),
                     Action::Quit => break,
-                    _ => {}
+                    Action::None => {}
                 }
             }
         }

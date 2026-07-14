@@ -33,22 +33,13 @@ Uses `tokio::sync::Semaphore` for concurrency control.
 
 **Errors:** Returns `TestListing` if a binary fails to produce test listings.
 
-### `detect_available_runner`
+### `cargo_available`
 
 ```rust
-pub fn detect_available_runner() -> Option<AvailableRunner>
+pub fn cargo_available() -> bool
 ```
 
-Checks if a test runner is available on the system.
-
-```rust
-pub enum AvailableRunner {
-    Nextest,
-    CargoTest,
-}
-```
-
-Prefers `cargo-nextest` if installed, falls back to `cargo test`.
+Returns whether `cargo` is on PATH. The native runner builds test binaries via `cargo test --no-run` and executes them directly, so cargo is the only external tool required.
 
 ## Test Execution
 
@@ -192,8 +183,6 @@ pub fn new(project_root: &Path, config: ExecutionConfig) -> Self
 | Method | Description |
 |--------|-------------|
 | `discover_tests(&self, filter: &str)` | Discovers test cases, optionally filtered by name substring |
-| `run_test_sync(&self, test_case: &TestCase)` | Runs a single test case once |
-| `run_test_repeatedly(&self, test_case, iterations, environment)` | Runs a test multiple times, returning `Vec<TestRun>` |
 
 ### `RunnerBackend`
 
@@ -205,7 +194,7 @@ pub enum RunnerBackend {
 
 Extensible enum wrapping runner implementations. Currently supports native Cargo test execution.
 
-**Methods:** `native()`, `execution_config()`, `discover_tests()`, `run_test_repeatedly()` — all delegate to the inner `NativeRunner`.
+**Methods:** `native()`, `execution_config()`, `discover_tests()` — all delegate to the inner `NativeRunner`.
 
 ## Standalone Function
 

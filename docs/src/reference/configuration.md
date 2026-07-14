@@ -11,15 +11,9 @@ Controls how tests are discovered and analyzed.
 | `min_runs` | u32 | `10` | Minimum number of runs per test |
 | `confidence_threshold` | f64 | `0.95` | Confidence level required to classify as flaky |
 | `window_size` | u32 | `100` | Number of recent runs used for trend analysis |
-| `detection_methods` | list | `["Bayesian"]` | Enabled detection methods |
-| `auto_detect` | bool | `true` | Automatically detect and run |
 | `parallel_runs` | u32 | `3` | Number of concurrent test executions |
 
-### Detection Methods
-
-Only one detection method is currently implemented:
-
-- `Bayesian` -- Beta distribution posterior inference using conjugate priors
+Detection uses Beta distribution posterior inference with conjugate priors. A test is only ever classified as flaky once at least one failure has actually been observed; long histories of clean passes always classify as stable.
 
 ### `[detection.duration_regression]`
 
@@ -31,7 +25,7 @@ Optional configuration for detecting tests whose execution time has significantl
 | `min_history_runs` | u32 | -- | Minimum historical runs required before checking |
 | `threshold` | enum | -- | How to determine a regression (see below) |
 
-Duration regression is disabled by default (the entire section is `None`). To enable it, provide the full section:
+When the section is omitted entirely, the check runs with its long-standing defaults: a 10-run history requirement and a threshold of 2 standard deviations. Provide the section to tune those values, or set `enabled = false` to switch the check off:
 
 ```toml
 [detection.duration_regression]
@@ -62,7 +56,9 @@ Controls retry behavior when tests fail.
 |-------|------|---------|-------------|
 | `unit_test_retries` | u32 | `2` | Number of retries for failed tests |
 | `backoff_strategy` | enum | `Exponential` | Backoff strategy between retries |
-| `max_retry_time_secs` | u64 | `300` | Maximum total time for retries (seconds) |
+| `max_retry_time_secs` | u64 | `300` | Time limit for a single test execution (seconds) |
+
+Every attempt is recorded as its own run, so a test that fails and then passes on retry contributes both outcomes to its flakiness score — recovery on retry is itself flaky evidence, and raising the retry count therefore gathers more evidence per iteration rather than hiding failures.
 
 ### Backoff Strategies
 
@@ -92,7 +88,6 @@ Controls test quarantine behavior.
 |-------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable quarantine functionality |
 | `auto_quarantine` | bool | `false` | Automatically quarantine tests exceeding thresholds |
-| `max_quarantine_days` | u32 | `30` | Maximum days a test stays quarantined |
 
 ### `[quarantine.threshold]`
 
@@ -111,7 +106,7 @@ Controls data persistence. Two backends are supported: SQLite (default) and Post
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `backend` | enum | `"Sqlite"` | Storage backend: `Sqlite` or `Postgres` |
-| `retention_days` | u32 | `90` | Days to keep test run data |
+| `retention_days` | u32 | `90` | Days to keep test run data; sessions left without any runs by the purge are removed with them |
 
 ### `[storage.sqlite]`
 
@@ -161,21 +156,6 @@ Controls output behavior.
 |-------|------|---------|-------------|
 | `summary_only` | bool | `false` | Show only summary counts instead of full table |
 
-## `[ci]`
-
-CI integration settings.
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `provider` | enum | none | CI provider for workflow generation |
-
-Supported providers: `GitHub`, `GitLab`, `Jenkins`, `CircleCI`, `AzureDevOps`, `Buildkite`.
-
-```toml
-[ci]
-provider = "GitHub"
-```
-
 ## Full Example
 
 ```toml
@@ -183,8 +163,6 @@ provider = "GitHub"
 min_runs = 20
 confidence_threshold = 0.99
 window_size = 50
-detection_methods = ["Bayesian"]
-auto_detect = true
 parallel_runs = 4
 
 [detection.duration_regression]
@@ -204,7 +182,6 @@ Exponential = { base_ms = 200, factor = 2.0, max_ms = 10000 }
 [quarantine]
 enabled = true
 auto_quarantine = true
-max_quarantine_days = 14
 
 [quarantine.threshold]
 consecutive_failures = 5
@@ -220,7 +197,4 @@ database_path = ".ninety-nine/data.db"
 
 [reporting.console]
 summary_only = false
-
-[ci]
-provider = "GitHub"
 ```

@@ -45,37 +45,52 @@ impl<'a> Executor<'a> {
         Self { config }
     }
 
-    /// Runs a single test case, retrying according to the execution config.
+    /// Runs a single test case, retrying failures according to the execution
+    /// config. Every attempt is returned, oldest first, so that fail-then-pass
+    /// sequences remain visible to flakiness detection rather than being
+    /// collapsed into their final outcome.
     ///
     /// # Errors
     ///
-    /// Returns `RunnerExecution` if the test binary cannot be spawned or
-    /// if no execution attempts are made.
-    pub fn run_single(&self, test_case: &TestCase) -> Result<TestResult, NinetyNineError> {
-        let mut last_result = None;
+    /// Returns `RunnerExecution` if the test binary cannot be spawned.
+    pub fn run_attempts(&self, test_case: &TestCase) -> Result<Vec<TestResult>, NinetyNineError> {
+        collect_attempts(
+            || execute_test(test_case, self.config.timeout),
+            self.config.retries,
+            self.config.retry_delay,
+        )
+    }
+}
 
-        for attempt in 0..=self.config.retries {
-            if attempt > 0 {
-                std::thread::sleep(self.config.retry_delay);
-            }
+fn collect_attempts(
+    mut run_once: impl FnMut() -> Result<TestResult, NinetyNineError>,
+    retries: u32,
+    retry_delay: Duration,
+) -> Result<Vec<TestResult>, NinetyNineError> {
+    let mut attempts = Vec::with_capacity(1);
 
-            let result = execute_test(test_case, self.config.timeout)?;
-            let passed = result.outcome == TestOutcome::Passed;
-
-            last_result = Some(TestResult {
-                attempt: attempt + 1,
-                ..result
-            });
-
-            if passed {
-                break;
-            }
+    for attempt in 0..=retries {
+        if attempt > 0 {
+            std::thread::sleep(retry_delay);
         }
 
-        last_result.ok_or_else(|| NinetyNineError::RunnerExecution {
-            message: "no execution attempts made".to_string(),
-        })
+        let result = run_once()?;
+        let retryable = matches!(
+            result.outcome,
+            TestOutcome::Failed | TestOutcome::Panic | TestOutcome::Timeout
+        );
+
+        attempts.push(TestResult {
+            attempt: attempt + 1,
+            ..result
+        });
+
+        if !retryable {
+            break;
+        }
     }
+
+    Ok(attempts)
 }
 
 fn execute_test(test_case: &TestCase, timeout: Duration) -> Result<TestResult, NinetyNineError> {
@@ -144,7 +159,13 @@ fn build_result(
     let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
 
     let outcome = if output.status.success() {
-        TestOutcome::Passed
+        // An `#[ignore]` test selected via --exact exits successfully without
+        // running; libtest's result line is the only signal that nothing ran.
+        if stdout.contains("test result: ok. 0 passed;") {
+            TestOutcome::Ignored
+        } else {
+            TestOutcome::Passed
+        }
     } else if stderr.contains("panicked at") || stdout.contains("panicked at") {
         TestOutcome::Panic
     } else {
@@ -193,6 +214,18 @@ mod tests {
 
     #[rstest]
     #[case(0, "", "", TestOutcome::Passed)]
+    #[case(
+        0,
+        "running 1 test\ntest tests::example ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s\n",
+        "",
+        TestOutcome::Passed
+    )]
+    #[case(
+        0,
+        "running 1 test\ntest tests::example ... ignored\ntest result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s\n",
+        "",
+        TestOutcome::Ignored
+    )]
     #[case(1, "", "", TestOutcome::Failed)]
     #[case(1, "", "thread 'main' panicked at 'assertion'", TestOutcome::Panic)]
     #[case(1, "thread 'main' panicked at 'boom'", "", TestOutcome::Panic)]
@@ -206,5 +239,74 @@ mod tests {
         let output = mock_output(exit_code, stdout, stderr);
         let result = build_result(&tc, &output, Duration::from_millis(10));
         assert_eq!(result.outcome, expected);
+    }
+
+    fn scripted_result(outcome: TestOutcome) -> TestResult {
+        TestResult {
+            test_case: mock_test_case(),
+            outcome,
+            duration: Duration::from_millis(1),
+            stdout: String::new(),
+            stderr: String::new(),
+            attempt: 1,
+        }
+    }
+
+    fn scripted_runner(
+        outcomes: Vec<TestOutcome>,
+    ) -> impl FnMut() -> Result<TestResult, NinetyNineError> {
+        let mut queue = outcomes.into_iter();
+        move || {
+            Ok(scripted_result(
+                queue
+                    .next()
+                    .expect("script exhausted: loop ran too many attempts"),
+            ))
+        }
+    }
+
+    #[rstest]
+    #[case(vec![TestOutcome::Passed], 2, vec![TestOutcome::Passed])]
+    #[case(
+        vec![TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Passed],
+        2,
+        vec![TestOutcome::Failed, TestOutcome::Failed, TestOutcome::Passed]
+    )]
+    #[case(
+        vec![TestOutcome::Failed, TestOutcome::Passed],
+        2,
+        vec![TestOutcome::Failed, TestOutcome::Passed]
+    )]
+    #[case(
+        vec![TestOutcome::Failed, TestOutcome::Failed],
+        1,
+        vec![TestOutcome::Failed, TestOutcome::Failed]
+    )]
+    #[case(vec![TestOutcome::Ignored], 2, vec![TestOutcome::Ignored])]
+    fn collect_attempts_records_every_attempt(
+        #[case] script: Vec<TestOutcome>,
+        #[case] retries: u32,
+        #[case] expected: Vec<TestOutcome>,
+    ) {
+        let attempts = collect_attempts(scripted_runner(script), retries, Duration::ZERO).unwrap();
+        let outcomes: Vec<TestOutcome> = attempts.iter().map(|a| a.outcome).collect();
+        assert_eq!(outcomes, expected);
+        let numbers: Vec<u32> = attempts.iter().map(|a| a.attempt).collect();
+        let expected_numbers: Vec<u32> = (1..=u32::try_from(expected.len()).unwrap()).collect();
+        assert_eq!(numbers, expected_numbers);
+    }
+
+    #[test]
+    fn collect_attempts_propagates_errors() {
+        let result = collect_attempts(
+            || {
+                Err(NinetyNineError::RunnerExecution {
+                    message: "spawn failed".to_string(),
+                })
+            },
+            2,
+            Duration::ZERO,
+        );
+        assert!(result.is_err());
     }
 }

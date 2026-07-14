@@ -10,6 +10,15 @@ pub struct DurationRegression {
     pub deviation_factor: f64,
 }
 
+/// How the latest duration is compared against the historical baseline.
+#[derive(Debug, Clone, Copy)]
+pub enum RegressionThreshold {
+    /// Latest exceeds the historical mean by this many standard deviations.
+    StdDevs(f64),
+    /// Latest exceeds the historical mean multiplied by this factor.
+    Multiplier(f64),
+}
+
 /// Detects tests whose recent duration significantly exceeds their historical mean.
 ///
 /// Computes mean and standard deviation from historical runs only (excluding the
@@ -22,7 +31,7 @@ pub fn detect_duration_regressions(
     test_name: &str,
     runs: &[TestRun],
     min_history: usize,
-    threshold_std_devs: f64,
+    threshold: RegressionThreshold,
 ) -> Option<DurationRegression> {
     if runs.len() < min_history {
         return None;
@@ -53,7 +62,12 @@ pub fn detect_duration_regressions(
 
     let deviation = (latest - hist_mean) / effective_std_dev;
 
-    if deviation > threshold_std_devs {
+    let regressed = match threshold {
+        RegressionThreshold::StdDevs(z) => deviation > z,
+        RegressionThreshold::Multiplier(m) => hist_mean > f64::EPSILON && latest > hist_mean * m,
+    };
+
+    if regressed {
         Some(DurationRegression {
             test_name: TestName::from(test_name),
             current_ms: latest,
@@ -120,7 +134,9 @@ mod tests {
             for _ in 0..count {
                 runs.push(make_run(baseline));
             }
-            if let Some(reg) = detect_duration_regressions("test::dur", &runs, 5, 0.0) {
+            if let Some(reg) =
+                detect_duration_regressions("test::dur", &runs, 5, RegressionThreshold::StdDevs(0.0))
+            {
                 prop_assert!(reg.deviation_factor >= 0.0);
                 prop_assert!(reg.mean_ms >= 0.0);
                 prop_assert!(reg.std_dev_ms >= 0.0);
@@ -139,14 +155,16 @@ mod tests {
     }
 
     #[rstest]
-    #[case(500, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, 2.0, true)]
-    #[case(100, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, 2.0, false)]
-    #[case(100, &[100], 5, 2.0, false)]
+    #[case(500, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, RegressionThreshold::StdDevs(2.0), true)]
+    #[case(100, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, RegressionThreshold::StdDevs(2.0), false)]
+    #[case(100, &[100], 5, RegressionThreshold::StdDevs(2.0), false)]
+    #[case(500, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, RegressionThreshold::Multiplier(3.0), true)]
+    #[case(250, &[100, 100, 100, 100, 100, 100, 100, 100, 100], 5, RegressionThreshold::Multiplier(3.0), false)]
     fn duration_regression_detection(
         #[case] latest_ms: u64,
         #[case] history_ms: &[u64],
         #[case] min_history: usize,
-        #[case] threshold: f64,
+        #[case] threshold: RegressionThreshold,
         #[case] expect_some: bool,
     ) {
         let mut runs = vec![make_run(latest_ms)];
@@ -155,8 +173,5 @@ mod tests {
         }
         let result = detect_duration_regressions("test::dur", &runs, min_history, threshold);
         assert_eq!(result.is_some(), expect_some);
-        if let Some(reg) = result {
-            assert!(reg.deviation_factor > threshold);
-        }
     }
 }

@@ -50,7 +50,7 @@ These keywords evaluate based on stored flakiness data:
 
 | Keyword | Matches |
 |---------|---------|
-| `flaky` | Tests with P(flaky) > 1% at or above the confidence threshold |
+| `flaky` | Tests with at least one recorded failure, P(flaky) > 1%, and confidence at or above the threshold |
 | `quarantined` | Tests currently in the quarantine list |
 | `all` | All tests (always true) |
 
@@ -77,15 +77,11 @@ Combine predicates using boolean operators:
 
 ### Operator Precedence
 
-From highest to lowest:
+`!` (NOT) binds tightest. `&` and `|` share **equal precedence** and associate left to right — unlike most programming languages, `&` does not bind tighter than `|`. Use parentheses whenever an expression mixes the two.
 
-1. `!` (NOT) -- binds tightest
-2. `&` (AND)
-3. `|` (OR) -- binds loosest
+**Example**: `flaky | quarantined & kind(test)` is parsed as `(flaky | quarantined) & kind(test)`, because the operators apply strictly left to right. To AND first, write `flaky | (quarantined & kind(test))` explicitly.
 
-Use parentheses to override the default precedence when needed.
-
-**Example**: `flaky | quarantined & kind(test)` is parsed as `flaky | (quarantined & kind(test))` because `&` binds tighter than `|`. To apply the OR first, write `(flaky | quarantined) & kind(test)`.
+Expressions may nest `!` and parentheses at most 64 levels deep; anything deeper is rejected with a parse error.
 
 ## Examples
 

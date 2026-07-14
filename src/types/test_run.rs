@@ -32,6 +32,20 @@ pub enum TestOutcome {
     Panic,
 }
 
+impl TestOutcome {
+    /// Four-character label used in run listings.
+    #[must_use]
+    pub const fn short_label(self) -> &'static str {
+        match self {
+            Self::Passed => "PASS",
+            Self::Failed => "FAIL",
+            Self::Ignored => "SKIP",
+            Self::Timeout => "TIME",
+            Self::Panic => "PANC",
+        }
+    }
+}
+
 impl std::fmt::Display for TestOutcome {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

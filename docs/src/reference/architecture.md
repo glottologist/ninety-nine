@@ -154,7 +154,7 @@ A newtype wrapper around `String` that prevents confusion with other string fiel
 
 ### ActiveSession
 
-Type-state pattern for session lifecycle. `ActiveSession::start()` creates a running session. `into_run_session()` consumes it to produce a storable `RunSession`, preventing double-finish at the orchestration layer. `to_run_session()` creates a storable copy without consuming the active session.
+Session lifecycle type. `ActiveSession::start()` creates a running session, and `to_run_session()` produces the storable `RunSession` snapshot without consuming it; the orchestrator finishes the session by id once the suite completes.
 
 ### FlakinessScore and FlakinessCategory
 
