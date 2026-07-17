@@ -148,6 +148,24 @@ mod tests {
         assert_eq!(config.diagnose.isolation_runs, 10);
     }
 
+    #[test]
+    fn diagnose_chaos_default_false() {
+        assert!(!model::DiagnoseConfig::default().chaos);
+    }
+
+    #[test]
+    fn quarantine_by_class_defaults() {
+        let q = model::QuarantineByClass::default();
+        assert!(q.intrinsic);
+        assert!(!q.contention);
+        assert!(q.broken);
+    }
+
+    #[test]
+    fn multi_phase_default_false() {
+        assert!(!model::DetectionConfig::default().multi_phase);
+    }
+
     #[rstest]
     #[case(model::BackoffStrategy::None, 0)]
     #[case(model::BackoffStrategy::Linear { delay_ms: 200 }, 200)]

@@ -36,21 +36,31 @@ pub fn resolve_rr(env: &impl RrEnvironment) -> RecordOutcome {
     }
 }
 
-/// Builds `rr record -o <out_dir> -- <binary> --exact <name> --nocapture`.
+/// Builds `rr record [-chaos] -o <out_dir> -- <binary> --exact <name> --nocapture`.
 #[must_use]
-pub fn rr_record_spec(rr: &Path, binary: &Path, test_name: &str, out_dir: &Path) -> CommandSpec {
+pub fn rr_record_spec(
+    rr: &Path,
+    binary: &Path,
+    test_name: &str,
+    out_dir: &Path,
+    chaos: bool,
+) -> CommandSpec {
+    let mut args = vec!["record".into()];
+    if chaos {
+        args.push("--chaos".into());
+    }
+    args.extend([
+        "-o".into(),
+        out_dir.to_string_lossy().into_owned(),
+        "--".into(),
+        binary.to_string_lossy().into_owned(),
+        "--exact".into(),
+        test_name.to_owned(),
+        "--nocapture".into(),
+    ]);
     CommandSpec {
         program: rr.to_path_buf(),
-        args: vec![
-            "record".into(),
-            "-o".into(),
-            out_dir.to_string_lossy().into_owned(),
-            "--".into(),
-            binary.to_string_lossy().into_owned(),
-            "--exact".into(),
-            test_name.to_owned(),
-            "--nocapture".into(),
-        ],
+        args,
         cwd: None,
     }
 }
@@ -78,6 +88,7 @@ pub fn attempt_record(
     record_dir: &Path,
     timeout: Duration,
     attempts: u32,
+    chaos: bool,
     env: &impl RrEnvironment,
 ) -> Result<RecordOutcome, NinetyNineError> {
     if !env.is_linux() {
@@ -112,6 +123,7 @@ pub fn attempt_record(
             &test_case.binary_path,
             test_case.name.as_ref(),
             &out_dir,
+            chaos,
         );
         let outcome = match run_timed(&spec, timeout) {
             Ok(o) => o,
@@ -160,6 +172,29 @@ fn dir_nonempty(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// User-facing message when recording was requested but skipped or soft-failed.
+#[must_use]
+pub fn rr_skip_message(outcome: &RecordOutcome) -> String {
+    match outcome {
+        RecordOutcome::UnsupportedOs => {
+            "rr recording is not supported on this platform; classification still ran."
+                .to_string()
+        }
+        RecordOutcome::Unavailable => {
+            "rr not found on PATH; install from https://rr-project.org/ (Linux only). Classification still ran."
+                .to_string()
+        }
+        RecordOutcome::RecorderError => {
+            "rr failed to produce a valid trace; classification still ran.".to_string()
+        }
+        RecordOutcome::PassedNoFailure => {
+            "rr ran but no failing isolation attempt was captured within the attempt budget."
+                .to_string()
+        }
+        RecordOutcome::SkippedNoRequest | RecordOutcome::FailedWithTrace { .. } => String::new(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -190,8 +225,15 @@ mod tests {
         };
         assert_eq!(resolve_rr(&env), RecordOutcome::UnsupportedOs);
         let tc = sample_case();
-        let outcome =
-            attempt_record(&tc, Path::new("/tmp"), Duration::from_secs(1), 1, &env).unwrap();
+        let outcome = attempt_record(
+            &tc,
+            Path::new("/tmp"),
+            Duration::from_secs(1),
+            1,
+            false,
+            &env,
+        )
+        .unwrap();
         assert_eq!(outcome, RecordOutcome::UnsupportedOs);
     }
 
@@ -203,8 +245,15 @@ mod tests {
         };
         assert_eq!(resolve_rr(&env), RecordOutcome::Unavailable);
         let tc = sample_case();
-        let outcome =
-            attempt_record(&tc, Path::new("/tmp"), Duration::from_secs(1), 1, &env).unwrap();
+        let outcome = attempt_record(
+            &tc,
+            Path::new("/tmp"),
+            Duration::from_secs(1),
+            1,
+            false,
+            &env,
+        )
+        .unwrap();
         assert_eq!(outcome, RecordOutcome::Unavailable);
     }
 
@@ -215,12 +264,37 @@ mod tests {
             Path::new("/tmp/bin"),
             "tests::t",
             Path::new("/tmp/out"),
+            false,
         );
         assert_eq!(spec.program, PathBuf::from("/usr/bin/rr"));
         assert!(spec.args.iter().any(|a| a == "record"));
         assert!(spec.args.iter().any(|a| a == "--exact"));
         assert!(spec.args.iter().any(|a| a == "tests::t"));
         assert!(!spec.args.iter().any(|a| a == "--chaos"));
+    }
+
+    #[test]
+    fn rr_spec_includes_chaos_when_enabled() {
+        let spec = rr_record_spec(
+            Path::new("/usr/bin/rr"),
+            Path::new("/tmp/bin"),
+            "tests::t",
+            Path::new("/tmp/out"),
+            true,
+        );
+        assert!(spec.args.iter().any(|a| a == "--chaos"));
+    }
+
+    #[test]
+    fn rr_skip_message_unsupported_os() {
+        let msg = rr_skip_message(&RecordOutcome::UnsupportedOs);
+        assert!(msg.to_lowercase().contains("not supported"));
+    }
+
+    #[test]
+    fn rr_skip_message_unavailable() {
+        let msg = rr_skip_message(&RecordOutcome::Unavailable);
+        assert!(msg.to_lowercase().contains("install") || msg.contains("rr"));
     }
 
     #[test]

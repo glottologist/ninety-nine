@@ -27,6 +27,13 @@ pub fn generate_github_actions(config: &Config) -> String {
     writeln!(yaml, "      - name: Install cargo-ninety-nine").ok();
     writeln!(yaml, "        run: cargo install cargo-ninety-nine").ok();
     writeln!(yaml).ok();
+    // Optional: Linux-only rr for diagnose --record (soft dependency; skip if unused).
+    writeln!(
+        yaml,
+        "      # Optional: sudo apt-get install -y rr  # for cargo ninety-nine diagnose --record"
+    )
+    .ok();
+    writeln!(yaml).ok();
     writeln!(yaml, "      - name: Run flaky test detection").ok();
 
     let mut run_cmd = String::from("cargo ninety-nine test");

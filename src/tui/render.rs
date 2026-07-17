@@ -3,9 +3,9 @@ use ratatui::widgets::{
     Block, Cell, Clear, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table,
 };
 
-use crate::types::{FlakinessCategory, FlakinessScore, RunSession, TestOutcome};
+use crate::types::{DiagnosticResult, FlakinessCategory, FlakinessScore, RunSession, TestOutcome};
 
-use super::app::{AppMode, DetailData, HistoryApp, ScoresApp, SessionDetail};
+use super::app::{AppMode, DetailData, DiagnoseApp, HistoryApp, ScoresApp, SessionDetail};
 
 const STYLE_BOLD: Style = Style::new().add_modifier(Modifier::BOLD);
 const STYLE_MUTED: Style = Style::new().fg(Color::DarkGray);
@@ -526,6 +526,99 @@ const fn outcome_label_style(outcome: TestOutcome) -> (&'static str, Style) {
         TestOutcome::Ignored => Style::new().fg(Color::DarkGray),
     };
     (outcome.short_label(), style)
+}
+
+pub fn draw_diagnose(f: &mut Frame, app: &mut DiagnoseApp) {
+    let chunks = Layout::vertical([
+        Constraint::Length(3),
+        Constraint::Length(1),
+        Constraint::Min(5),
+        Constraint::Length(1),
+    ])
+    .split(f.area());
+
+    let filter_label = match app.class_filter() {
+        None => "all",
+        Some(c) => c.as_str(),
+    };
+    let header = Paragraph::new(format!(
+        " diagnose | {} shown | filter: {filter_label}",
+        app.visible_rows().len(),
+    ))
+    .block(Block::bordered().title(" cargo ninety-nine "));
+    f.render_widget(header, chunks[0]);
+
+    let filter_bar =
+        Paragraph::new(" [f] cycle class filter  [j/k] move  [Enter] detail  [q] quit")
+            .style(STYLE_MUTED);
+    f.render_widget(filter_bar, chunks[1]);
+
+    let rows: Vec<Row> = app
+        .visible_rows()
+        .iter()
+        .map(|r| {
+            let stress = format!("{}/{}", r.counts.stress_failures, r.counts.stress_runs);
+            let isolation = format!(
+                "{}/{}",
+                r.counts.isolation_failures, r.counts.isolation_runs
+            );
+            let rec = r
+                .recording
+                .recording_path()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "-".into());
+            Row::new(vec![
+                Cell::from(r.class.as_str()),
+                Cell::from(stress),
+                Cell::from(isolation),
+                Cell::from(r.test_id.key()),
+                Cell::from(rec),
+            ])
+        })
+        .collect();
+
+    let widths = [
+        Constraint::Length(12),
+        Constraint::Length(10),
+        Constraint::Length(12),
+        Constraint::Min(20),
+        Constraint::Length(24),
+    ];
+    let table = Table::new(rows, widths)
+        .header(Row::new(vec!["CLASS", "STRESS", "ISOLATION", "TEST", "REC"]).style(STYLE_BOLD))
+        .block(Block::bordered())
+        .row_highlight_style(STYLE_SELECTED);
+    f.render_stateful_widget(table, chunks[2], &mut app.table_state);
+
+    let footer = Paragraph::new(" multi-phase results ").style(STYLE_MUTED);
+    f.render_widget(footer, chunks[3]);
+
+    if app.detail {
+        if let Some(r) = app.selected() {
+            draw_diagnose_detail(f, r);
+        }
+    }
+}
+
+fn draw_diagnose_detail(f: &mut Frame, r: &DiagnosticResult) {
+    let area = centered_rect(70, 50, f.area());
+    f.render_widget(Clear, area);
+    let rec = r
+        .recording
+        .recording_path()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|| "(none)".into());
+    let body = format!(
+        "Test: {}\nClass: {}\nStress: {}/{} failures\nIsolation: {}/{} failures\nRecording: {rec}",
+        r.test_id.key(),
+        r.class.as_str(),
+        r.counts.stress_failures,
+        r.counts.stress_runs,
+        r.counts.isolation_failures,
+        r.counts.isolation_runs,
+    );
+    let block = Block::bordered().title(" Detail ");
+    f.render_widget(Paragraph::new(body).block(block), area);
 }
 
 #[cfg(test)]

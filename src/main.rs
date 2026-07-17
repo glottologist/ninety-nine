@@ -20,7 +20,8 @@ use cargo_ninety_nine::cli::{
 use cargo_ninety_nine::config;
 use cargo_ninety_nine::config::model::Config;
 use cargo_ninety_nine::detector::BayesianDetector;
-use cargo_ninety_nine::diagnose::{DiagnoseOpts, run_diagnose};
+use cargo_ninety_nine::diagnose::quarantine::auto_quarantine_by_class;
+use cargo_ninety_nine::diagnose::{DiagnoseOpts, resolve_multi_phase, run_diagnose};
 use cargo_ninety_nine::discovery::{SelectOpts, discover_and_filter_tests};
 use cargo_ninety_nine::env::detect_git_info;
 use cargo_ninety_nine::error::NinetyNineError;
@@ -28,6 +29,7 @@ use cargo_ninety_nine::orchestrator::{
     SuiteResults, auto_quarantine, execute_test_suite, finalize_session, print_analysis,
 };
 use cargo_ninety_nine::runner::executor::ExecutionConfig;
+use cargo_ninety_nine::runner::record::rr_skip_message;
 use cargo_ninety_nine::runner::{RunnerBackend, cargo_available};
 use cargo_ninety_nine::storage::{Storage, StorageBackend, open_storage};
 use cargo_ninety_nine::types::ActiveSession;
@@ -38,6 +40,7 @@ struct TestOpts<'a> {
     confidence: f64,
     output_format: OutputFormat,
     non_interactive: bool,
+    multi_phase: bool,
 }
 
 #[tokio::main]
@@ -83,14 +86,26 @@ async fn run(
             filter_expr,
             iterations,
             confidence,
+            multi_phase,
+            no_multi_phase,
         } => {
             let storage = open_storage(&config).await?;
+            if multi_phase && no_multi_phase {
+                return Err(NinetyNineError::InvalidConfig {
+                    message: "cannot pass both --multi-phase and --no-multi-phase".into(),
+                });
+            }
             let opts = TestOpts {
                 filter_expr: filter_expr.as_deref(),
                 iterations: iterations.unwrap_or(config.detection.min_runs),
                 confidence: confidence.unwrap_or(config.detection.confidence_threshold),
                 output_format,
                 non_interactive,
+                multi_phase: resolve_multi_phase(
+                    multi_phase,
+                    no_multi_phase,
+                    config.detection.multi_phase,
+                ),
             };
             run_test(project_dir, &config, &storage, &opts).await
         }
@@ -101,6 +116,7 @@ async fn run(
             record,
             no_record,
             record_dir,
+            chaos,
             confidence,
         } => {
             let storage = open_storage(&config).await?;
@@ -115,8 +131,10 @@ async fn run(
                     record,
                     no_record,
                     record_dir,
+                    chaos,
                     confidence,
                     output_format,
+                    non_interactive,
                 },
             )
             .await
@@ -163,8 +181,10 @@ struct DiagnoseCli<'a> {
     record: bool,
     no_record: bool,
     record_dir: Option<std::path::PathBuf>,
+    chaos: bool,
     confidence: Option<f64>,
     output_format: OutputFormat,
+    non_interactive: bool,
 }
 
 async fn run_diagnose_cmd(
@@ -185,6 +205,22 @@ async fn run_diagnose_cmd(
         });
     }
 
+    let do_record = if cli.no_record {
+        false
+    } else if cli.record {
+        true
+    } else {
+        config.diagnose.record
+    };
+
+    let chaos = cli.chaos || config.diagnose.chaos;
+    if chaos && !do_record {
+        return Err(NinetyNineError::InvalidConfig {
+            message: "--chaos requires recording; pass --record or set diagnose.record = true"
+                .into(),
+        });
+    }
+
     let confidence = cli
         .confidence
         .unwrap_or(config.detection.confidence_threshold);
@@ -195,14 +231,6 @@ async fn run_diagnose_cmd(
     let backend = build_backend(config, project_dir);
     let Some(tests) = discover_and_filter_tests(&backend, storage, &select).await? else {
         return Ok(());
-    };
-
-    let do_record = if cli.no_record {
-        false
-    } else if cli.record {
-        true
-    } else {
-        config.diagnose.record
     };
 
     let opts = DiagnoseOpts {
@@ -216,11 +244,29 @@ async fn run_diagnose_cmd(
             .record_dir
             .unwrap_or_else(|| config.diagnose.record_dir.clone()), // clone: DiagnoseOpts owns path
         record_attempts: config.diagnose.record_attempts,
+        chaos,
         confidence,
     };
 
     let results = run_diagnose(project_dir, &backend, storage, &tests, &opts).await?;
-    print_diagnose_report(&results, cli.output_format);
+
+    if do_record {
+        for r in &results {
+            let msg = rr_skip_message(&r.recording);
+            if !msg.is_empty() {
+                eprintln!("{msg}");
+                break;
+            }
+        }
+    }
+
+    auto_quarantine_by_class(&config.quarantine, storage, &results).await?;
+
+    if cli.non_interactive {
+        print_diagnose_report(&results, cli.output_format);
+    } else {
+        cargo_ninety_nine::tui::run_diagnose(results)?;
+    }
     Ok(())
 }
 
@@ -243,6 +289,36 @@ async fn run_test(
         return Ok(());
     };
 
+    let mut remaining_tests = tests;
+
+    if opts.multi_phase {
+        let d_opts = DiagnoseOpts {
+            stress_runs: config.diagnose.stress_runs,
+            isolation_runs: config.diagnose.isolation_runs,
+            stress_threads: config.diagnose.effective_stress_threads(),
+            stress_timeout: Duration::from_secs(config.diagnose.stress_timeout_secs),
+            isolation_timeout: Duration::from_secs(config.retry.max_retry_time_secs),
+            record: config.diagnose.record,
+            record_dir: config.diagnose.record_dir.clone(), // clone: DiagnoseOpts owns path
+            record_attempts: config.diagnose.record_attempts,
+            chaos: config.diagnose.chaos,
+            confidence: opts.confidence,
+        };
+        let diag = run_diagnose(project_dir, &backend, storage, &remaining_tests, &d_opts).await?;
+        auto_quarantine_by_class(&config.quarantine, storage, &diag).await?;
+        print_diagnose_report(&diag, opts.output_format);
+
+        let candidate_names: std::collections::HashSet<_> = diag
+            .iter()
+            .map(|r| r.test_id.test_name.as_ref().to_string())
+            .collect();
+        remaining_tests.retain(|tc| !candidate_names.contains(tc.name.as_ref()));
+    }
+
+    if remaining_tests.is_empty() {
+        return Ok(());
+    }
+
     let (commit_hash, branch) = detect_git_info();
     let session = ActiveSession::start(&commit_hash, &branch);
     storage.store_session(&session.to_run_session()).await?;
@@ -251,7 +327,7 @@ async fn run_test(
     let mut results = execute_test_suite(
         &backend,
         storage,
-        &tests,
+        &remaining_tests,
         opts.iterations,
         &detector,
         &session,
@@ -260,7 +336,7 @@ async fn run_test(
     .await?;
 
     print_run_summary(
-        tests.len(),
+        remaining_tests.len(),
         results.pass_count,
         results.flaky_count,
         results.fail_count,

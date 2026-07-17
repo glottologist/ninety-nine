@@ -23,8 +23,9 @@ use crate::error::NinetyNineError;
 use crate::storage::{Storage, StorageBackend};
 use crate::types::{FlakinessScore, RunSession};
 
-use self::app::{AppMode, DetailData, HistoryApp, ScoresApp, SessionDetail};
+use self::app::{AppMode, DetailData, DiagnoseApp, HistoryApp, ScoresApp, SessionDetail};
 use self::input::{Action, handle_key_event};
+use crate::types::DiagnosticResult;
 
 struct TerminalGuard {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
@@ -76,6 +77,54 @@ fn install_signal_handlers() -> Result<Arc<AtomicBool>, NinetyNineError> {
         signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&shutdown))?;
     }
     Ok(shutdown)
+}
+
+/// Launches the interactive TUI for diagnose results.
+///
+/// # Errors
+///
+/// Returns an error if terminal setup fails.
+pub fn run_diagnose(results: Vec<DiagnosticResult>) -> Result<(), NinetyNineError> {
+    tokio::task::block_in_place(|| diagnose_loop(results))
+}
+
+fn diagnose_loop(results: Vec<DiagnosticResult>) -> Result<(), NinetyNineError> {
+    install_panic_hook();
+    let shutdown = install_signal_handlers()?;
+    let mut guard = TerminalGuard::new()?;
+    let mut app = DiagnoseApp::new(results);
+
+    loop {
+        guard
+            .terminal
+            .draw(|f| render::draw_diagnose(f, &mut app))?;
+
+        if shutdown.load(Ordering::Relaxed) {
+            break;
+        }
+
+        if poll(Duration::from_millis(100))? {
+            if let Event::Key(key) = event::read()? {
+                match handle_key_event(key, &AppMode::Browse) {
+                    Action::MoveUp => app.move_up(),
+                    Action::MoveDown => app.move_down(),
+                    Action::CycleFilter => app.cycle_class_filter(),
+                    Action::Enter => {
+                        if app.detail {
+                            app.exit_detail();
+                        } else {
+                            app.enter_detail();
+                        }
+                    }
+                    Action::Back => app.exit_detail(),
+                    Action::Quit => break,
+                    Action::CycleSort | Action::ReverseSort | Action::None => {}
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Launches the interactive TUI for flakiness scores.

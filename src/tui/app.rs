@@ -1,8 +1,8 @@
 use ratatui::widgets::TableState;
 
 use crate::types::{
-    FailurePattern, FlakinessCategory, FlakinessScore, RunSession, TestOutcome, TestRun,
-    TrendSummary,
+    DiagnosticResult, FailurePattern, FlakeClass, FlakinessCategory, FlakinessScore, RunSession,
+    TestOutcome, TestRun, TrendSummary,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -462,6 +462,112 @@ impl HistoryApp {
     }
 }
 
+/// Interactive browse state for diagnose results.
+pub struct DiagnoseApp {
+    results: Vec<DiagnosticResult>,
+    filtered: Vec<usize>,
+    pub table_state: TableState,
+    class_filter: Option<FlakeClass>,
+    pub detail: bool,
+}
+
+impl DiagnoseApp {
+    #[must_use]
+    pub fn new(results: Vec<DiagnosticResult>) -> Self {
+        let mut app = Self {
+            results,
+            filtered: Vec::new(),
+            table_state: TableState::default(),
+            class_filter: None,
+            detail: false,
+        };
+        app.rebuild_filter();
+        app
+    }
+
+    pub fn set_class_filter(&mut self, filter: Option<FlakeClass>) {
+        self.class_filter = filter;
+        self.rebuild_filter();
+    }
+
+    pub fn cycle_class_filter(&mut self) {
+        self.class_filter = match self.class_filter {
+            None => Some(FlakeClass::Contention),
+            Some(FlakeClass::Contention) => Some(FlakeClass::Intrinsic),
+            Some(FlakeClass::Intrinsic) => Some(FlakeClass::Broken),
+            Some(FlakeClass::Broken) => None,
+        };
+        self.rebuild_filter();
+    }
+
+    fn rebuild_filter(&mut self) {
+        self.filtered = self
+            .results
+            .iter()
+            .enumerate()
+            .filter(|(_, r)| self.class_filter.is_none_or(|c| r.class == c))
+            .map(|(i, _)| i)
+            .collect();
+        if self.filtered.is_empty() {
+            self.table_state.select(None);
+        } else {
+            self.table_state.select(Some(0));
+        }
+    }
+
+    #[must_use]
+    pub fn visible_rows(&self) -> Vec<&DiagnosticResult> {
+        self.filtered
+            .iter()
+            .filter_map(|&i| self.results.get(i))
+            .collect()
+    }
+
+    #[must_use]
+    pub fn class_filter(&self) -> Option<FlakeClass> {
+        self.class_filter
+    }
+
+    pub fn move_up(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        let i = self.table_state.selected().unwrap_or(0);
+        let next = if i == 0 {
+            self.filtered.len() - 1
+        } else {
+            i - 1
+        };
+        self.table_state.select(Some(next));
+    }
+
+    pub fn move_down(&mut self) {
+        if self.filtered.is_empty() {
+            return;
+        }
+        let i = self.table_state.selected().unwrap_or(0);
+        let next = (i + 1) % self.filtered.len();
+        self.table_state.select(Some(next));
+    }
+
+    #[must_use]
+    pub fn selected(&self) -> Option<&DiagnosticResult> {
+        let i = self.table_state.selected()?;
+        let idx = *self.filtered.get(i)?;
+        self.results.get(idx)
+    }
+
+    pub fn enter_detail(&mut self) {
+        if self.selected().is_some() {
+            self.detail = true;
+        }
+    }
+
+    pub fn exit_detail(&mut self) {
+        self.detail = false;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -717,5 +823,56 @@ mod tests {
                 prop_assert!(sel < app.sessions.len());
             }
         }
+    }
+
+    fn sample_diagnose_results() -> Vec<DiagnosticResult> {
+        use crate::types::{PhaseCounts, RecordOutcome, TestId};
+        vec![
+            DiagnosticResult {
+                test_id: TestId::new("p", "b", "t::contention"),
+                class: FlakeClass::Contention,
+                counts: PhaseCounts {
+                    stress_runs: 3,
+                    stress_failures: 1,
+                    isolation_runs: 10,
+                    isolation_failures: 0,
+                },
+                recording: RecordOutcome::SkippedNoRequest,
+            },
+            DiagnosticResult {
+                test_id: TestId::new("p", "b", "t::intrinsic"),
+                class: FlakeClass::Intrinsic,
+                counts: PhaseCounts {
+                    stress_runs: 3,
+                    stress_failures: 1,
+                    isolation_runs: 10,
+                    isolation_failures: 3,
+                },
+                recording: RecordOutcome::SkippedNoRequest,
+            },
+            DiagnosticResult {
+                test_id: TestId::new("p", "b", "t::broken"),
+                class: FlakeClass::Broken,
+                counts: PhaseCounts {
+                    stress_runs: 2,
+                    stress_failures: 2,
+                    isolation_runs: 5,
+                    isolation_failures: 5,
+                },
+                recording: RecordOutcome::SkippedNoRequest,
+            },
+        ]
+    }
+
+    #[test]
+    fn diagnose_app_filter_intrinsic_only() {
+        let mut app = DiagnoseApp::new(sample_diagnose_results());
+        app.set_class_filter(Some(FlakeClass::Intrinsic));
+        assert!(
+            app.visible_rows()
+                .iter()
+                .all(|r| r.class == FlakeClass::Intrinsic)
+        );
+        assert_eq!(app.visible_rows().len(), 1);
     }
 }

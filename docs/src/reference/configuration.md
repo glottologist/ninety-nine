@@ -61,6 +61,21 @@ Controls the multi-phase `diagnose` command (stress / isolation / optional rr).
 | `record` | bool | `false` | Attempt rr recording for Intrinsic failures |
 | `record_dir` | path | `.ninety-nine/recordings` | rr output directory |
 | `record_attempts` | u32 | `10` | Max rr attempts per Intrinsic candidate |
+| `chaos` | bool | `false` | Pass `--chaos` to rr when recording |
+
+## `[detection]` multi-phase
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `multi_phase` | bool | `false` | When true, `test` runs diagnose for candidates then Bayesian suite for the rest |
+
+## `[quarantine.by_class]`
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `intrinsic` | bool | `true` | Auto-quarantine Intrinsic diagnose classes |
+| `contention` | bool | `false` | Auto-quarantine Contention classes |
+| `broken` | bool | `true` | Auto-quarantine Broken classes |
 
 ## `[retry]`
 

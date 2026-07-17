@@ -17,6 +17,20 @@ use crate::types::{
     TestOutcome,
 };
 
+pub mod quarantine;
+
+/// Resolves multi-phase flag: CLI overrides config.
+#[must_use]
+pub fn resolve_multi_phase(cli_multi: bool, cli_no_multi: bool, config_multi: bool) -> bool {
+    if cli_no_multi {
+        false
+    } else if cli_multi {
+        true
+    } else {
+        config_multi
+    }
+}
+
 pub struct DiagnoseOpts {
     pub stress_runs: u32,
     pub isolation_runs: u32,
@@ -26,6 +40,7 @@ pub struct DiagnoseOpts {
     pub record: bool,
     pub record_dir: PathBuf,
     pub record_attempts: u32,
+    pub chaos: bool,
     pub confidence: f64,
 }
 
@@ -165,6 +180,7 @@ pub async fn run_diagnose(
                 &opts.record_dir,
                 opts.isolation_timeout,
                 opts.record_attempts,
+                opts.chaos,
                 &SystemRrEnvironment,
             )?
         } else {
@@ -206,6 +222,14 @@ mod tests {
     use super::*;
     use crate::types::TestName;
     use std::time::Duration;
+
+    #[test]
+    fn resolve_multi_phase_cli_over_config() {
+        assert!(resolve_multi_phase(true, false, false));
+        assert!(!resolve_multi_phase(false, true, true));
+        assert!(resolve_multi_phase(false, false, true));
+        assert!(!resolve_multi_phase(false, false, false));
+    }
 
     #[test]
     fn isolation_config_disables_retries() {

@@ -24,6 +24,8 @@ pub struct DiagnoseConfig {
     pub record: bool,
     pub record_dir: PathBuf,
     pub record_attempts: u32,
+    /// Pass `--chaos` to rr when recording (V2).
+    pub chaos: bool,
 }
 
 impl Default for DiagnoseConfig {
@@ -36,6 +38,7 @@ impl Default for DiagnoseConfig {
             record: false,
             record_dir: PathBuf::from(".ninety-nine/recordings"),
             record_attempts: 10,
+            chaos: false,
         }
     }
 }
@@ -90,6 +93,9 @@ pub struct DetectionConfig {
     pub window_size: u32,
     pub parallel_runs: u32,
     pub duration_regression: Option<DurationRegressionConfig>,
+    /// When true, `test` runs diagnose stress/isolation for candidates then
+    /// Bayesian multi-run for non-candidates (V2).
+    pub multi_phase: bool,
 }
 
 impl Default for DetectionConfig {
@@ -100,6 +106,7 @@ impl Default for DetectionConfig {
             window_size: 100,
             parallel_runs: 3,
             duration_regression: None,
+            multi_phase: false,
         }
     }
 }
@@ -149,6 +156,7 @@ pub struct QuarantineConfig {
     pub enabled: bool,
     pub auto_quarantine: bool,
     pub threshold: QuarantineThreshold,
+    pub by_class: QuarantineByClass,
 }
 
 impl Default for QuarantineConfig {
@@ -157,6 +165,26 @@ impl Default for QuarantineConfig {
             enabled: true,
             auto_quarantine: false,
             threshold: QuarantineThreshold::default(),
+            by_class: QuarantineByClass::default(),
+        }
+    }
+}
+
+/// Which diagnose classes are eligible for auto-quarantine (V2).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct QuarantineByClass {
+    pub intrinsic: bool,
+    pub contention: bool,
+    pub broken: bool,
+}
+
+impl Default for QuarantineByClass {
+    fn default() -> Self {
+        Self {
+            intrinsic: true,
+            contention: false,
+            broken: true,
         }
     }
 }

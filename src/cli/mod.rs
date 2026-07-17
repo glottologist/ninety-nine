@@ -70,6 +70,15 @@ pub enum Commands {
 
         #[arg(long, help = "Confidence threshold for flakiness detection")]
         confidence: Option<f64>,
+
+        #[arg(
+            long,
+            help = "Run multi-phase diagnose then Bayesian suite for non-candidates"
+        )]
+        multi_phase: bool,
+
+        #[arg(long, help = "Disable multi-phase even if config enables it")]
+        no_multi_phase: bool,
     },
 
     #[command(about = "Multi-phase diagnose: stress, isolation, classify, optional rr")]
@@ -91,6 +100,9 @@ pub enum Commands {
 
         #[arg(long, help = "Directory for rr recordings")]
         record_dir: Option<PathBuf>,
+
+        #[arg(long, help = "Pass --chaos to rr when recording")]
+        chaos: bool,
 
         #[arg(long, help = "Confidence threshold for Bayesian scoring")]
         confidence: Option<f64>,
