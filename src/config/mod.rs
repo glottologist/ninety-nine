@@ -100,6 +100,52 @@ mod tests {
         let parsed: Config = toml::from_str(&toml_str).unwrap();
         assert_eq!(parsed.detection.min_runs, 10);
         assert!((parsed.detection.confidence_threshold - 0.95).abs() < f64::EPSILON);
+        assert_eq!(parsed.diagnose.stress_runs, 3);
+        assert_eq!(parsed.diagnose.isolation_runs, 10);
+        assert!(!parsed.diagnose.record);
+    }
+
+    #[test]
+    fn diagnose_config_defaults() {
+        let d = model::DiagnoseConfig::default();
+        assert_eq!(d.stress_runs, 3);
+        assert_eq!(d.isolation_runs, 10);
+        assert_eq!(d.stress_threads, 0);
+        assert!(!d.record);
+        assert_eq!(d.record_attempts, 10);
+        assert!(d.validate().is_ok());
+    }
+
+    #[test]
+    fn diagnose_validate_rejects_zero_stress_runs() {
+        let d = model::DiagnoseConfig {
+            stress_runs: 0,
+            ..model::DiagnoseConfig::default()
+        };
+        assert!(d.validate().is_err());
+    }
+
+    #[test]
+    fn diagnose_validate_allows_zero_stress_threads() {
+        let d = model::DiagnoseConfig {
+            stress_threads: 0,
+            ..model::DiagnoseConfig::default()
+        };
+        assert!(d.validate().is_ok());
+        assert!(d.effective_stress_threads() >= 1);
+    }
+
+    #[test]
+    fn load_config_diagnose_override() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join(CONFIG_FILE_NAME),
+            "[diagnose]\nstress_runs = 7\n",
+        )
+        .unwrap();
+        let config = load_config(dir.path()).unwrap();
+        assert_eq!(config.diagnose.stress_runs, 7);
+        assert_eq!(config.diagnose.isolation_runs, 10);
     }
 
     #[rstest]

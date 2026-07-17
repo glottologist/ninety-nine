@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::config::model::Config;
 use crate::error::NinetyNineError;
-use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestRun};
+use crate::types::{DiagnosticResult, FlakinessScore, QuarantineEntry, RunSession, TestRun};
 
 /// Trait for test result storage backends.
 pub trait Storage: Send + Sync {
@@ -126,13 +126,34 @@ pub trait Storage: Send + Sync {
     async fn get_session_runs(&self, session_id: &Uuid) -> Result<Vec<TestRun>, NinetyNineError>;
 
     /// Deletes test runs older than the specified number of days, along with
-    /// any sessions older than the cutoff that no longer own any runs.
+    /// diagnostic rows for aged sessions and empty aged sessions.
     /// Returns the number of test runs deleted.
     ///
     /// # Errors
     ///
     /// Returns a storage error if the delete fails.
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError>;
+
+    /// Stores a multi-phase diagnostic result for a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns a storage error if the row cannot be written.
+    async fn store_diagnostic_result(
+        &self,
+        result: &DiagnosticResult,
+        session_id: &Uuid,
+    ) -> Result<(), NinetyNineError>;
+
+    /// Lists diagnostic results for a session.
+    ///
+    /// # Errors
+    ///
+    /// Returns a storage error if the query fails.
+    async fn get_diagnostic_results(
+        &self,
+        session_id: &Uuid,
+    ) -> Result<Vec<DiagnosticResult>, NinetyNineError>;
 }
 
 /// Opens the configured storage backend.

@@ -47,6 +47,7 @@ pub fn test_run(name: &str, outcome: TestOutcome) -> TestRun {
         retry_count: 0,
         error_message: None,
         stack_trace: None,
+        phase: None,
     }
 }
 

@@ -6,7 +6,10 @@ use uuid::Uuid;
 use crate::error::NinetyNineError;
 use crate::storage::mapping::{RawScoreRow, RawTestRunRow};
 use crate::storage::{Storage, duration_to_ms};
-use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestName, TestRun};
+use crate::types::{
+    DiagnosticResult, FlakeClass, FlakinessScore, PhaseCounts, QuarantineEntry, RecordOutcome,
+    RunPhase, RunSession, SessionKind, TestId, TestName, TestRun,
+};
 
 pub struct PostgresStorage {
     pool: Pool,
@@ -67,7 +70,7 @@ impl PostgresStorage {
             .await?;
         let current_version: i32 = row.get(0);
 
-        let migrations = [Self::migration_v1()];
+        let migrations = [Self::migration_v1(), Self::migration_v2()];
 
         for (i, sql) in migrations.iter().enumerate() {
             let version = i32::try_from(i).unwrap_or(0) + 1;
@@ -83,6 +86,27 @@ impl PostgresStorage {
         }
 
         Ok(())
+    }
+
+    const fn migration_v2() -> &'static str {
+        "ALTER TABLE run_sessions ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'detection';
+         ALTER TABLE test_runs ADD COLUMN IF NOT EXISTS phase TEXT;
+         CREATE TABLE IF NOT EXISTS diagnostic_results (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL REFERENCES run_sessions(id),
+            package_name TEXT NOT NULL,
+            binary_name TEXT NOT NULL,
+            test_name TEXT NOT NULL,
+            class TEXT NOT NULL,
+            stress_runs INTEGER NOT NULL,
+            stress_failures INTEGER NOT NULL,
+            isolation_runs INTEGER NOT NULL,
+            isolation_failures INTEGER NOT NULL,
+            recording_path TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         );
+         CREATE INDEX IF NOT EXISTS idx_diag_session ON diagnostic_results(session_id);
+         CREATE INDEX IF NOT EXISTS idx_diag_test ON diagnostic_results(package_name, binary_name, test_name);"
     }
 
     const fn migration_v1() -> &'static str {
@@ -162,15 +186,16 @@ impl Storage for PostgresStorage {
 
         client
                 .execute(
-                    "INSERT INTO run_sessions (id, started_at, finished_at, test_count, flaky_count, commit_hash, branch)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    "INSERT INTO run_sessions (id, started_at, finished_at, test_count, flaky_count, commit_hash, branch, kind)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                      ON CONFLICT (id) DO UPDATE SET
                         started_at = EXCLUDED.started_at,
                         finished_at = EXCLUDED.finished_at,
                         test_count = EXCLUDED.test_count,
                         flaky_count = EXCLUDED.flaky_count,
                         commit_hash = EXCLUDED.commit_hash,
-                        branch = EXCLUDED.branch",
+                        branch = EXCLUDED.branch,
+                        kind = EXCLUDED.kind",
                     &[
                         &session.id.to_string(),
                         &session.started_at,
@@ -179,6 +204,7 @@ impl Storage for PostgresStorage {
                         &i32::try_from(session.flaky_count).unwrap_or(i32::MAX),
                         &session.commit_hash,
                         &session.branch,
+                        &session.kind.as_str(),
                     ],
                 )
                 .await?;
@@ -216,12 +242,13 @@ impl Storage for PostgresStorage {
     ) -> Result<(), NinetyNineError> {
         let client = self.get_client().await?;
 
+        let phase = run.phase.map(RunPhase::as_str);
         client
                 .execute(
                     "INSERT INTO test_runs (id, session_id, test_name, test_path, outcome, duration_ms,
                      timestamp, commit_hash, branch, retry_count, error_message, stack_trace,
-                     env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)",
+                     env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)",
                     &[
                         &run.id.to_string(),
                         &session_id.to_string(),
@@ -241,6 +268,7 @@ impl Storage for PostgresStorage {
                         &run.environment.memory_gb,
                         &run.environment.is_ci,
                         &run.environment.ci_provider,
+                        &phase,
                     ],
                 )
                 .await?;
@@ -305,7 +333,7 @@ impl Storage for PostgresStorage {
                 .query(
                     "SELECT id, test_name, test_path, outcome, duration_ms, timestamp,
                             commit_hash, branch, retry_count, error_message, stack_trace,
-                            env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider
+                            env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase
                      FROM test_runs WHERE test_name = $1
                      ORDER BY timestamp DESC LIMIT $2",
                     &[&test_name, &i64::from(limit)],
@@ -324,7 +352,7 @@ impl Storage for PostgresStorage {
 
         let rows = client
             .query(
-                "SELECT id, started_at, finished_at, test_count, flaky_count, commit_hash, branch
+                "SELECT id, started_at, finished_at, test_count, flaky_count, commit_hash, branch, kind
                      FROM run_sessions ORDER BY started_at DESC LIMIT $1",
                 &[&i64::from(limit)],
             )
@@ -335,6 +363,7 @@ impl Storage for PostgresStorage {
             let id_str: String = row.get("id");
             let test_count: i32 = row.get("test_count");
             let flaky_count: i32 = row.get("flaky_count");
+            let kind_str: String = row.get("kind");
 
             sessions.push(RunSession {
                 id: Uuid::parse_str(&id_str).unwrap_or_else(|e| {
@@ -347,6 +376,7 @@ impl Storage for PostgresStorage {
                 flaky_count: u32::try_from(flaky_count).unwrap_or(0),
                 commit_hash: row.get("commit_hash"),
                 branch: row.get("branch"),
+                kind: kind_str.parse().unwrap_or(SessionKind::Detection),
             });
         }
         Ok(sessions)
@@ -474,7 +504,7 @@ impl Storage for PostgresStorage {
             .query(
                 "SELECT id, test_name, test_path, outcome, duration_ms, timestamp,
                         commit_hash, branch, retry_count, error_message, stack_trace,
-                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider
+                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase
                  FROM test_runs WHERE session_id = $1
                  ORDER BY test_name ASC",
                 &[&session_id.to_string()],
@@ -489,26 +519,131 @@ impl Storage for PostgresStorage {
     }
 
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError> {
-        let client = self.get_client().await?;
-
+        let mut client = self.get_client().await?;
         let cutoff: DateTime<Utc> = Utc::now() - chrono::Duration::days(i64::from(days));
 
-        let count = client
+        let tx = client.transaction().await?;
+
+        tx.execute(
+            "DELETE FROM diagnostic_results
+             WHERE session_id IN (
+                 SELECT id FROM run_sessions WHERE started_at < $1
+             )",
+            &[&cutoff],
+        )
+        .await?;
+
+        let count = tx
             .execute("DELETE FROM test_runs WHERE timestamp < $1", &[&cutoff])
             .await?;
 
+        tx.execute(
+            "DELETE FROM run_sessions
+             WHERE started_at < $1
+               AND NOT EXISTS (
+                   SELECT 1 FROM test_runs WHERE test_runs.session_id = run_sessions.id
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM diagnostic_results WHERE diagnostic_results.session_id = run_sessions.id
+               )",
+            &[&cutoff],
+        )
+        .await?;
+
+        tx.commit().await?;
+        Ok(count)
+    }
+
+    async fn store_diagnostic_result(
+        &self,
+        result: &DiagnosticResult,
+        session_id: &Uuid,
+    ) -> Result<(), NinetyNineError> {
+        let client = self.get_client().await?;
+        let recording_path = result
+            .recording
+            .recording_path()
+            .map(|p| p.to_string_lossy().into_owned());
+        let id = Uuid::new_v4().to_string();
+
         client
             .execute(
-                "DELETE FROM run_sessions
-                 WHERE started_at < $1
-                   AND NOT EXISTS (
-                       SELECT 1 FROM test_runs WHERE test_runs.session_id = run_sessions.id
-                   )",
-                &[&cutoff],
+                "INSERT INTO diagnostic_results
+                 (id, session_id, package_name, binary_name, test_name, class,
+                  stress_runs, stress_failures, isolation_runs, isolation_failures,
+                  recording_path, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+                &[
+                    &id,
+                    &session_id.to_string(),
+                    &result.test_id.package_name,
+                    &result.test_id.binary_name,
+                    &result.test_id.test_name.as_ref(),
+                    &result.class.as_str(),
+                    &i32::try_from(result.counts.stress_runs).unwrap_or(i32::MAX),
+                    &i32::try_from(result.counts.stress_failures).unwrap_or(i32::MAX),
+                    &i32::try_from(result.counts.isolation_runs).unwrap_or(i32::MAX),
+                    &i32::try_from(result.counts.isolation_failures).unwrap_or(i32::MAX),
+                    &recording_path,
+                    &Utc::now(),
+                ],
             )
             .await?;
 
-        Ok(count)
+        Ok(())
+    }
+
+    async fn get_diagnostic_results(
+        &self,
+        session_id: &Uuid,
+    ) -> Result<Vec<DiagnosticResult>, NinetyNineError> {
+        let client = self.get_client().await?;
+        let rows = client
+            .query(
+                "SELECT package_name, binary_name, test_name, class,
+                        stress_runs, stress_failures, isolation_runs, isolation_failures,
+                        recording_path
+                 FROM diagnostic_results WHERE session_id = $1
+                 ORDER BY package_name, binary_name, test_name",
+                &[&session_id.to_string()],
+            )
+            .await?;
+
+        let mut out = Vec::with_capacity(rows.len());
+        for row in &rows {
+            let package_name: String = row.get("package_name");
+            let binary_name: String = row.get("binary_name");
+            let test_name: String = row.get("test_name");
+            let class_str: String = row.get("class");
+            let stress_runs: i32 = row.get("stress_runs");
+            let stress_failures: i32 = row.get("stress_failures");
+            let isolation_runs: i32 = row.get("isolation_runs");
+            let isolation_failures: i32 = row.get("isolation_failures");
+            let recording_path: Option<String> = row.get("recording_path");
+
+            let class = class_str
+                .parse::<FlakeClass>()
+                .unwrap_or(FlakeClass::Intrinsic);
+            let recording = match recording_path {
+                Some(p) => RecordOutcome::FailedWithTrace {
+                    path: std::path::PathBuf::from(p),
+                },
+                None => RecordOutcome::SkippedNoRequest,
+            };
+
+            out.push(DiagnosticResult {
+                test_id: TestId::new(package_name, binary_name, test_name),
+                class,
+                counts: PhaseCounts {
+                    stress_runs: u32::try_from(stress_runs).unwrap_or(0),
+                    stress_failures: u32::try_from(stress_failures).unwrap_or(0),
+                    isolation_runs: u32::try_from(isolation_runs).unwrap_or(0),
+                    isolation_failures: u32::try_from(isolation_failures).unwrap_or(0),
+                },
+                recording,
+            });
+        }
+        Ok(out)
     }
 }
 
@@ -531,6 +666,7 @@ fn extract_test_run(row: &tokio_postgres::Row) -> RawTestRunRow {
         env_memory_gb: row.get("env_memory_gb"),
         env_is_ci: row.get("env_is_ci"),
         env_ci_provider: row.get("env_ci_provider"),
+        phase: row.get("phase"),
     }
 }
 

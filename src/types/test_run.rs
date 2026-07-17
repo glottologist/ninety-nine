@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::diagnose::RunPhase;
 use super::test_name::TestName;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -21,6 +22,9 @@ pub struct TestRun {
     pub retry_count: u32,
     pub error_message: Option<String>,
     pub stack_trace: Option<String>,
+    /// Execution phase for diagnose isolation runs; `None` for detection / legacy rows.
+    #[serde(default)]
+    pub phase: Option<RunPhase>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

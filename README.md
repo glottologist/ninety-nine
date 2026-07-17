@@ -21,6 +21,7 @@ Flaky tests -- tests that sometimes pass and sometimes fail without code changes
 ## Features
 
 - **Bayesian flakiness detection** -- computes posterior probability of flakiness using Beta distribution, not just pass/fail ratios
+- **Multi-phase diagnose** -- stress full binaries, isolate candidates, classify Contention / Intrinsic / Broken, optional rr recording
 - **Interactive TUI** -- terminal interface with scrollable tables, category filtering, sort cycling, and detail drill-down
 - **Filter DSL** -- expressive query language to target tests by name, package, binary, kind, or flakiness status
 - **Pattern analysis** -- detects time-of-day and environmental (CI vs local) failure patterns

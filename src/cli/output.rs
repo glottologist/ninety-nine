@@ -6,8 +6,8 @@ use colored::Colorize;
 
 use crate::detector::BayesianDetector;
 use crate::types::{
-    FailurePattern, FlakinessCategory, FlakinessScore, QuarantineEntry, RunSession, TestRun,
-    TestVerdict, TrendSummary,
+    DiagnosticResult, FailurePattern, FlakinessCategory, FlakinessScore, QuarantineEntry,
+    RunSession, TestRun, TestVerdict, TrendSummary,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -320,6 +320,56 @@ pub fn print_quarantine_list(entries: &[QuarantineEntry], format: OutputFormat) 
             Err(e) => tracing::warn!("failed to serialize quarantine list to JSON: {e}"),
         },
     }
+}
+
+pub fn print_diagnose_report(results: &[DiagnosticResult], format: OutputFormat) {
+    match format {
+        OutputFormat::Console => print_console_diagnose(results),
+        OutputFormat::Json => match serde_json::to_string_pretty(results) {
+            Ok(json) => println!("{json}"),
+            Err(e) => tracing::warn!("failed to serialize diagnose report to JSON: {e}"),
+        },
+    }
+}
+
+fn print_console_diagnose(results: &[DiagnosticResult]) {
+    if results.is_empty() {
+        println!("{}", "No stress failures classified.".dimmed());
+        return;
+    }
+
+    println!("\n{}\n", "Diagnose Results".bold().underline());
+    println!(
+        "{:<12} {:>10} {:>12} {:<40} {}",
+        "CLASS".bold(),
+        "STRESS".bold(),
+        "ISOLATION".bold(),
+        "TEST".bold(),
+        "REC".bold(),
+    );
+    println!("{}", "-".repeat(100));
+
+    for r in results {
+        let stress = format!("{}/{}", r.counts.stress_failures, r.counts.stress_runs);
+        let isolation = format!(
+            "{}/{}",
+            r.counts.isolation_failures, r.counts.isolation_runs
+        );
+        let rec = r
+            .recording
+            .recording_path()
+            .map(|p| p.display().to_string())
+            .unwrap_or_else(|| "-".into());
+        println!(
+            "{:<12} {:>10} {:>12} {:<40} {}",
+            r.class.as_str(),
+            stress,
+            isolation,
+            truncate_name(&r.test_id.key(), 40),
+            rec,
+        );
+    }
+    println!();
 }
 
 fn print_console_quarantine(entries: &[QuarantineEntry]) {

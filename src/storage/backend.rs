@@ -4,7 +4,7 @@ use crate::error::NinetyNineError;
 use crate::storage::Storage;
 use crate::storage::postgres::PostgresStorage;
 use crate::storage::sqlite::SqliteStorage;
-use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestRun};
+use crate::types::{DiagnosticResult, FlakinessScore, QuarantineEntry, RunSession, TestRun};
 
 pub enum StorageBackend {
     Sqlite(SqliteStorage),
@@ -94,5 +94,20 @@ impl Storage for StorageBackend {
 
     async fn purge_older_than(&self, days: u32) -> Result<u64, NinetyNineError> {
         dispatch!(self, purge_older_than, days)
+    }
+
+    async fn store_diagnostic_result(
+        &self,
+        result: &DiagnosticResult,
+        session_id: &Uuid,
+    ) -> Result<(), NinetyNineError> {
+        dispatch!(self, store_diagnostic_result, result, session_id)
+    }
+
+    async fn get_diagnostic_results(
+        &self,
+        session_id: &Uuid,
+    ) -> Result<Vec<DiagnosticResult>, NinetyNineError> {
+        dispatch!(self, get_diagnostic_results, session_id)
     }
 }

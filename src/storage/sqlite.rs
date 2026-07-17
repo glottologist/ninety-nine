@@ -8,7 +8,10 @@ use uuid::Uuid;
 use crate::error::NinetyNineError;
 use crate::storage::mapping::{RawScoreRow, RawTestRunRow};
 use crate::storage::{Storage, duration_to_ms, parse_timestamp, schema};
-use crate::types::{FlakinessScore, QuarantineEntry, RunSession, TestName, TestRun};
+use crate::types::{
+    DiagnosticResult, FlakeClass, FlakinessScore, PhaseCounts, QuarantineEntry, RecordOutcome,
+    RunPhase, RunSession, SessionKind, TestId, TestName, TestRun,
+};
 
 pub struct SqliteStorage {
     conn: Mutex<Connection>,
@@ -74,8 +77,8 @@ impl Storage for SqliteStorage {
         let finished = session.finished_at.map(|dt| dt.to_rfc3339());
         let guard = self.lock_conn()?;
         guard.execute(
-            "INSERT INTO run_sessions (id, started_at, finished_at, test_count, flaky_count, commit_hash, branch)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO run_sessions (id, started_at, finished_at, test_count, flaky_count, commit_hash, branch, kind)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 session.id.to_string(),
                 session.started_at.to_rfc3339(),
@@ -84,6 +87,7 @@ impl Storage for SqliteStorage {
                 session.flaky_count,
                 session.commit_hash,
                 session.branch,
+                session.kind.as_str(),
             ],
         )?;
         drop(guard);
@@ -116,11 +120,12 @@ impl Storage for SqliteStorage {
         session_id: &Uuid,
     ) -> Result<(), NinetyNineError> {
         let guard = self.lock_conn()?;
+        let phase = run.phase.map(RunPhase::as_str);
         guard.execute(
             "INSERT INTO test_runs (id, session_id, test_name, test_path, outcome, duration_ms,
              timestamp, commit_hash, branch, retry_count, error_message, stack_trace,
-             env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+             env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 run.id.to_string(),
                 session_id.to_string(),
@@ -140,6 +145,7 @@ impl Storage for SqliteStorage {
                 run.environment.memory_gb,
                 run.environment.is_ci,
                 run.environment.ci_provider,
+                phase,
             ],
         )?;
         drop(guard);
@@ -185,7 +191,7 @@ impl Storage for SqliteStorage {
             let mut stmt = guard.prepare(
                 "SELECT id, test_name, test_path, outcome, duration_ms, timestamp,
                         commit_hash, branch, retry_count, error_message, stack_trace,
-                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider
+                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase
                  FROM test_runs WHERE test_name = ?1
                  ORDER BY timestamp DESC LIMIT ?2",
             )?;
@@ -207,7 +213,7 @@ impl Storage for SqliteStorage {
         let sessions = {
             let guard = self.lock_conn()?;
             let mut stmt = guard.prepare(
-                "SELECT id, started_at, finished_at, test_count, flaky_count, commit_hash, branch
+                "SELECT id, started_at, finished_at, test_count, flaky_count, commit_hash, branch, kind
                  FROM run_sessions ORDER BY started_at DESC LIMIT ?1",
             )?;
 
@@ -219,6 +225,7 @@ impl Storage for SqliteStorage {
                 let flaky_count: u32 = row.get(4)?;
                 let commit_hash: String = row.get(5)?;
                 let branch: String = row.get(6)?;
+                let kind_str: String = row.get(7)?;
 
                 Ok(RunSession {
                     id: Uuid::parse_str(&id_str).unwrap_or_else(|e| {
@@ -231,6 +238,7 @@ impl Storage for SqliteStorage {
                     flaky_count,
                     commit_hash,
                     branch,
+                    kind: kind_str.parse().unwrap_or(SessionKind::Detection),
                 })
             })?;
 
@@ -365,7 +373,7 @@ impl Storage for SqliteStorage {
             let mut stmt = guard.prepare(
                 "SELECT id, test_name, test_path, outcome, duration_ms, timestamp,
                         commit_hash, branch, retry_count, error_message, stack_trace,
-                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider
+                        env_os, env_rust_version, env_cpu_count, env_memory_gb, env_is_ci, env_ci_provider, phase
                  FROM test_runs WHERE session_id = ?1
                  ORDER BY test_name ASC",
             )?;
@@ -388,21 +396,128 @@ impl Storage for SqliteStorage {
         let cutoff_str = cutoff.to_rfc3339();
 
         let guard = self.lock_conn()?;
-        let purged_runs = guard.execute(
+        let tx = guard.unchecked_transaction()?;
+
+        tx.execute(
+            "DELETE FROM diagnostic_results
+             WHERE session_id IN (
+                 SELECT id FROM run_sessions WHERE started_at < ?1
+             )",
+            params![cutoff_str],
+        )?;
+
+        let purged_runs = tx.execute(
             "DELETE FROM test_runs WHERE timestamp < ?1",
             params![cutoff_str],
         )?;
 
-        guard.execute(
+        tx.execute(
             "DELETE FROM run_sessions
              WHERE started_at < ?1
                AND NOT EXISTS (
                    SELECT 1 FROM test_runs WHERE test_runs.session_id = run_sessions.id
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM diagnostic_results WHERE diagnostic_results.session_id = run_sessions.id
                )",
             params![cutoff_str],
         )?;
 
+        tx.commit()?;
         Ok(u64::try_from(purged_runs).unwrap_or(u64::MAX))
+    }
+
+    async fn store_diagnostic_result(
+        &self,
+        result: &DiagnosticResult,
+        session_id: &Uuid,
+    ) -> Result<(), NinetyNineError> {
+        let recording_path = result
+            .recording
+            .recording_path()
+            .map(|p| p.to_string_lossy().into_owned());
+        let id = Uuid::new_v4().to_string();
+        let guard = self.lock_conn()?;
+        guard.execute(
+            "INSERT INTO diagnostic_results
+             (id, session_id, package_name, binary_name, test_name, class,
+              stress_runs, stress_failures, isolation_runs, isolation_failures,
+              recording_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                id,
+                session_id.to_string(),
+                result.test_id.package_name,
+                result.test_id.binary_name,
+                result.test_id.test_name.as_ref(),
+                result.class.as_str(),
+                result.counts.stress_runs,
+                result.counts.stress_failures,
+                result.counts.isolation_runs,
+                result.counts.isolation_failures,
+                recording_path,
+                Utc::now().to_rfc3339(),
+            ],
+        )?;
+        drop(guard);
+        Ok(())
+    }
+
+    async fn get_diagnostic_results(
+        &self,
+        session_id: &Uuid,
+    ) -> Result<Vec<DiagnosticResult>, NinetyNineError> {
+        let results = {
+            let guard = self.lock_conn()?;
+            let mut stmt = guard.prepare(
+                "SELECT package_name, binary_name, test_name, class,
+                        stress_runs, stress_failures, isolation_runs, isolation_failures,
+                        recording_path
+                 FROM diagnostic_results WHERE session_id = ?1
+                 ORDER BY package_name, binary_name, test_name",
+            )?;
+
+            let rows = stmt.query_map(params![session_id.to_string()], |row| {
+                let package_name: String = row.get(0)?;
+                let binary_name: String = row.get(1)?;
+                let test_name: String = row.get(2)?;
+                let class_str: String = row.get(3)?;
+                let stress_runs: u32 = row.get(4)?;
+                let stress_failures: u32 = row.get(5)?;
+                let isolation_runs: u32 = row.get(6)?;
+                let isolation_failures: u32 = row.get(7)?;
+                let recording_path: Option<String> = row.get(8)?;
+
+                let class = class_str
+                    .parse::<FlakeClass>()
+                    .unwrap_or(FlakeClass::Intrinsic);
+                let recording = match recording_path {
+                    Some(p) => RecordOutcome::FailedWithTrace {
+                        path: std::path::PathBuf::from(p),
+                    },
+                    None => RecordOutcome::SkippedNoRequest,
+                };
+
+                Ok(DiagnosticResult {
+                    test_id: TestId::new(package_name, binary_name, test_name),
+                    class,
+                    counts: PhaseCounts {
+                        stress_runs,
+                        stress_failures,
+                        isolation_runs,
+                        isolation_failures,
+                    },
+                    recording,
+                })
+            })?;
+
+            let mut out = Vec::new();
+            for row_result in rows {
+                out.push(row_result?);
+            }
+            out
+        };
+        Ok(results)
     }
 }
 
@@ -425,6 +540,7 @@ fn extract_test_run_row(row: &rusqlite::Row<'_>) -> Result<RawTestRunRow, Ninety
         env_memory_gb: row.get(14)?,
         env_is_ci: row.get(15)?,
         env_ci_provider: row.get(16)?,
+        phase: row.get(17)?,
     })
 }
 
@@ -712,5 +828,66 @@ mod tests {
             let retrieved = rt.block_on(storage.get_test_runs("tests::count", 100)).unwrap();
             prop_assert_eq!(u32::try_from(retrieved.len()).unwrap_or(0), n);
         }
+    }
+
+    #[tokio::test]
+    async fn store_and_list_diagnostic_results() {
+        let storage = setup();
+        let mut session = test_session("abc", "main");
+        session.kind = SessionKind::Diagnose;
+        storage.store_session(&session).await.unwrap();
+
+        let result = DiagnosticResult {
+            test_id: TestId::new("pkg", "bin", "tests::flaky"),
+            class: FlakeClass::Contention,
+            counts: PhaseCounts {
+                stress_runs: 3,
+                stress_failures: 1,
+                isolation_runs: 10,
+                isolation_failures: 0,
+            },
+            recording: RecordOutcome::SkippedNoRequest,
+        };
+        storage
+            .store_diagnostic_result(&result, &session.id)
+            .await
+            .unwrap();
+
+        let list = storage.get_diagnostic_results(&session.id).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].class, FlakeClass::Contention);
+        assert_eq!(list[0].counts.stress_failures, 1);
+        assert_eq!(list[0].test_id.package_name, "pkg");
+    }
+
+    #[tokio::test]
+    async fn retention_removes_diagnostic_results() {
+        let storage = setup();
+        let mut session = test_session("old", "main");
+        session.kind = SessionKind::Diagnose;
+        session.started_at = Utc::now() - chrono::Duration::days(100);
+        storage.store_session(&session).await.unwrap();
+
+        let result = DiagnosticResult {
+            test_id: TestId::new("pkg", "bin", "t"),
+            class: FlakeClass::Broken,
+            counts: PhaseCounts {
+                stress_runs: 1,
+                stress_failures: 1,
+                isolation_runs: 5,
+                isolation_failures: 5,
+            },
+            recording: RecordOutcome::SkippedNoRequest,
+        };
+        storage
+            .store_diagnostic_result(&result, &session.id)
+            .await
+            .unwrap();
+
+        storage.purge_older_than(30).await.unwrap();
+        let list = storage.get_diagnostic_results(&session.id).await.unwrap();
+        assert!(list.is_empty());
+        let sessions = storage.get_recent_sessions(10).await.unwrap();
+        assert!(sessions.iter().all(|s| s.id != session.id));
     }
 }

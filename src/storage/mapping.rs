@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use super::ms_to_duration;
 use crate::types::{
-    BayesianParams, FlakinessScore, TestEnvironment, TestName, TestOutcome, TestRun,
+    BayesianParams, FlakinessScore, RunPhase, TestEnvironment, TestName, TestOutcome, TestRun,
 };
 
 pub struct RawTestRunRow {
@@ -27,6 +27,7 @@ pub struct RawTestRunRow {
     pub env_memory_gb: f64,
     pub env_is_ci: bool,
     pub env_ci_provider: Option<String>,
+    pub phase: Option<String>,
 }
 
 impl RawTestRunRow {
@@ -38,6 +39,15 @@ impl RawTestRunRow {
         let outcome = TestOutcome::from_str(&self.outcome).unwrap_or_else(|e| {
             tracing::warn!(outcome = %self.outcome, error = %e, "unrecognized test outcome in storage, defaulting to Failed");
             TestOutcome::Failed
+        });
+
+        let phase = self.phase.and_then(|p| {
+            RunPhase::from_str(&p)
+                .map_err(|e| {
+                    tracing::warn!(phase = %p, error = %e, "unrecognized run phase in storage");
+                    e
+                })
+                .ok()
         });
 
         TestRun {
@@ -60,6 +70,7 @@ impl RawTestRunRow {
             retry_count: self.retry_count,
             error_message: self.error_message,
             stack_trace: self.stack_trace,
+            phase,
         }
     }
 }
@@ -101,6 +112,7 @@ fn default_raw_test_run() -> RawTestRunRow {
         env_memory_gb: 16.0,
         env_is_ci: false,
         env_ci_provider: None,
+        phase: None,
     }
 }
 

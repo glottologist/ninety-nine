@@ -10,6 +10,76 @@ pub struct Config {
     pub quarantine: QuarantineConfig,
     pub storage: StorageConfig,
     pub reporting: ReportingConfig,
+    pub diagnose: DiagnoseConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DiagnoseConfig {
+    pub stress_runs: u32,
+    pub isolation_runs: u32,
+    /// Zero means use available parallelism at resolve time.
+    pub stress_threads: u32,
+    pub stress_timeout_secs: u64,
+    pub record: bool,
+    pub record_dir: PathBuf,
+    pub record_attempts: u32,
+}
+
+impl Default for DiagnoseConfig {
+    fn default() -> Self {
+        Self {
+            stress_runs: 3,
+            isolation_runs: 10,
+            stress_threads: 0,
+            stress_timeout_secs: 300,
+            record: false,
+            record_dir: PathBuf::from(".ninety-nine/recordings"),
+            record_attempts: 10,
+        }
+    }
+}
+
+impl DiagnoseConfig {
+    #[must_use]
+    pub fn effective_stress_threads(&self) -> usize {
+        if self.stress_threads == 0 {
+            std::thread::available_parallelism()
+                .map(std::num::NonZeroUsize::get)
+                .unwrap_or(4)
+        } else {
+            usize::try_from(self.stress_threads).unwrap_or(4)
+        }
+    }
+
+    /// Validates diagnose configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InvalidConfig` when required counts are zero.
+    pub fn validate(&self) -> Result<(), crate::error::NinetyNineError> {
+        if self.stress_runs == 0 {
+            return Err(crate::error::NinetyNineError::InvalidConfig {
+                message: "diagnose.stress_runs must be >= 1".into(),
+            });
+        }
+        if self.isolation_runs == 0 {
+            return Err(crate::error::NinetyNineError::InvalidConfig {
+                message: "diagnose.isolation_runs must be >= 1".into(),
+            });
+        }
+        if self.record_attempts == 0 {
+            return Err(crate::error::NinetyNineError::InvalidConfig {
+                message: "diagnose.record_attempts must be >= 1".into(),
+            });
+        }
+        if self.stress_timeout_secs == 0 {
+            return Err(crate::error::NinetyNineError::InvalidConfig {
+                message: "diagnose.stress_timeout_secs must be >= 1".into(),
+            });
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

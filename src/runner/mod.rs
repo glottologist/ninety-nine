@@ -2,6 +2,9 @@ pub mod binary;
 pub mod detection;
 pub mod executor;
 pub mod listing;
+pub mod process;
+pub mod record;
+pub mod stress;
 
 pub use detection::cargo_available;
 
@@ -145,6 +148,7 @@ fn test_result_to_run(result: &TestResult, environment: &TestEnvironment) -> Tes
         retry_count: result.attempt.saturating_sub(1),
         error_message,
         stack_trace: None,
+        phase: None,
     }
 }
 

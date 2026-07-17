@@ -48,6 +48,20 @@ StdDev = 2.0
 | `StdDev(f64)` | Flag when the latest duration is more than N standard deviations above the historical mean |
 | `Multiplier(f64)` | Flag when the latest duration exceeds the historical mean multiplied by this factor |
 
+## `[diagnose]`
+
+Controls the multi-phase `diagnose` command (stress / isolation / optional rr).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `stress_runs` | u32 | `3` | Full-binary multi-threaded suite iterations |
+| `isolation_runs` | u32 | `10` | Serial isolation iterations per candidate |
+| `stress_threads` | u32 | `0` | libtest threads (0 = host parallelism) |
+| `stress_timeout_secs` | u64 | `300` | Timeout per stress binary iteration |
+| `record` | bool | `false` | Attempt rr recording for Intrinsic failures |
+| `record_dir` | path | `.ninety-nine/recordings` | rr output directory |
+| `record_attempts` | u32 | `10` | Max rr attempts per Intrinsic candidate |
+
 ## `[retry]`
 
 Controls retry behavior when tests fail.

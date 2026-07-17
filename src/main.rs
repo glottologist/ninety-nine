@@ -9,8 +9,9 @@ use cargo_ninety_nine::analysis::trend::calculate_trend;
 use cargo_ninety_nine::ci::{generate_github_actions, generate_gitlab_ci};
 use cargo_ninety_nine::cli::export::{export_csv, export_html, export_json, export_junit};
 use cargo_ninety_nine::cli::output::{
-    print_duration_regression_summary, print_flakiness_report, print_quarantine_list,
-    print_run_summary, print_session_report, print_summary, print_test_detail,
+    print_diagnose_report, print_duration_regression_summary, print_flakiness_report,
+    print_quarantine_list, print_run_summary, print_session_report, print_summary,
+    print_test_detail,
 };
 use cargo_ninety_nine::cli::{
     CargoSubcommand, CiCommand, CiTarget, Cli, Commands, ExportFormat, OutputFormat,
@@ -19,15 +20,14 @@ use cargo_ninety_nine::cli::{
 use cargo_ninety_nine::config;
 use cargo_ninety_nine::config::model::Config;
 use cargo_ninety_nine::detector::BayesianDetector;
+use cargo_ninety_nine::diagnose::{DiagnoseOpts, run_diagnose};
+use cargo_ninety_nine::discovery::{SelectOpts, discover_and_filter_tests};
 use cargo_ninety_nine::env::detect_git_info;
 use cargo_ninety_nine::error::NinetyNineError;
-use cargo_ninety_nine::filter;
-use cargo_ninety_nine::filter::eval::{TestMetadata, eval};
 use cargo_ninety_nine::orchestrator::{
     SuiteResults, auto_quarantine, execute_test_suite, finalize_session, print_analysis,
 };
 use cargo_ninety_nine::runner::executor::ExecutionConfig;
-use cargo_ninety_nine::runner::listing::TestCase;
 use cargo_ninety_nine::runner::{RunnerBackend, cargo_available};
 use cargo_ninety_nine::storage::{Storage, StorageBackend, open_storage};
 use cargo_ninety_nine::types::ActiveSession;
@@ -94,6 +94,33 @@ async fn run(
             };
             run_test(project_dir, &config, &storage, &opts).await
         }
+        Commands::Diagnose {
+            filter_expr,
+            stress_runs,
+            isolation_runs,
+            record,
+            no_record,
+            record_dir,
+            confidence,
+        } => {
+            let storage = open_storage(&config).await?;
+            run_diagnose_cmd(
+                project_dir,
+                &config,
+                &storage,
+                DiagnoseCli {
+                    filter_expr: filter_expr.as_deref(),
+                    stress_runs,
+                    isolation_runs,
+                    record,
+                    no_record,
+                    record_dir,
+                    confidence,
+                    output_format,
+                },
+            )
+            .await
+        }
         Commands::Init { force } => run_init(project_dir, force),
         Commands::History { filter, limit } => {
             let storage = open_storage(&config).await?;
@@ -129,6 +156,74 @@ async fn run(
     }
 }
 
+struct DiagnoseCli<'a> {
+    filter_expr: Option<&'a str>,
+    stress_runs: Option<u32>,
+    isolation_runs: Option<u32>,
+    record: bool,
+    no_record: bool,
+    record_dir: Option<std::path::PathBuf>,
+    confidence: Option<f64>,
+    output_format: OutputFormat,
+}
+
+async fn run_diagnose_cmd(
+    project_dir: &Path,
+    config: &Config,
+    storage: &StorageBackend,
+    cli: DiagnoseCli<'_>,
+) -> Result<(), NinetyNineError> {
+    if !cargo_available() {
+        return Err(NinetyNineError::NoRunnerAvailable);
+    }
+
+    config.diagnose.validate()?;
+
+    if cli.record && cli.no_record {
+        return Err(NinetyNineError::InvalidConfig {
+            message: "cannot pass both --record and --no-record".into(),
+        });
+    }
+
+    let confidence = cli
+        .confidence
+        .unwrap_or(config.detection.confidence_threshold);
+    let select = SelectOpts {
+        filter_expr: cli.filter_expr,
+        confidence,
+    };
+    let backend = build_backend(config, project_dir);
+    let Some(tests) = discover_and_filter_tests(&backend, storage, &select).await? else {
+        return Ok(());
+    };
+
+    let do_record = if cli.no_record {
+        false
+    } else if cli.record {
+        true
+    } else {
+        config.diagnose.record
+    };
+
+    let opts = DiagnoseOpts {
+        stress_runs: cli.stress_runs.unwrap_or(config.diagnose.stress_runs),
+        isolation_runs: cli.isolation_runs.unwrap_or(config.diagnose.isolation_runs),
+        stress_threads: config.diagnose.effective_stress_threads(),
+        stress_timeout: Duration::from_secs(config.diagnose.stress_timeout_secs),
+        isolation_timeout: Duration::from_secs(config.retry.max_retry_time_secs),
+        record: do_record,
+        record_dir: cli
+            .record_dir
+            .unwrap_or_else(|| config.diagnose.record_dir.clone()), // clone: DiagnoseOpts owns path
+        record_attempts: config.diagnose.record_attempts,
+        confidence,
+    };
+
+    let results = run_diagnose(project_dir, &backend, storage, &tests, &opts).await?;
+    print_diagnose_report(&results, cli.output_format);
+    Ok(())
+}
+
 async fn run_test(
     project_dir: &Path,
     config: &Config,
@@ -140,7 +235,11 @@ async fn run_test(
     }
 
     let backend = build_backend(config, project_dir);
-    let Some(tests) = discover_and_filter_tests(&backend, storage, opts).await? else {
+    let select = SelectOpts {
+        filter_expr: opts.filter_expr,
+        confidence: opts.confidence,
+    };
+    let Some(tests) = discover_and_filter_tests(&backend, storage, &select).await? else {
         return Ok(());
     };
 
@@ -204,42 +303,6 @@ fn print_results(
         );
         print_analysis(&results.all_runs, config);
     }
-}
-
-async fn discover_and_filter_tests(
-    backend: &RunnerBackend,
-    storage: &StorageBackend,
-    opts: &TestOpts<'_>,
-) -> Result<Option<Vec<TestCase>>, NinetyNineError> {
-    let mut tests = backend.discover_tests("").await?;
-
-    if tests.is_empty() {
-        println!("No tests found.");
-        return Ok(None);
-    }
-
-    let eval_ctx = filter::build_eval_context(storage, opts.confidence).await?;
-
-    if let Some(expr_str) = opts.filter_expr {
-        let expr = filter::compile_filter(expr_str)?;
-        tests.retain(|tc| {
-            let meta = TestMetadata {
-                name: &tc.name,
-                package_name: &tc.package_name,
-                binary_name: &tc.binary_name,
-                kind: &tc.binary_kind,
-            };
-            eval(&expr, &meta, &eval_ctx)
-        });
-    }
-
-    if tests.is_empty() {
-        println!("No tests matching filter.");
-        return Ok(None);
-    }
-
-    tracing::info!(count = tests.len(), "discovered tests");
-    Ok(Some(tests))
 }
 
 async fn run_history(

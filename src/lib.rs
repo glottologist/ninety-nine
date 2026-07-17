@@ -3,6 +3,8 @@ pub mod ci;
 pub mod cli;
 pub mod config;
 pub mod detector;
+pub mod diagnose;
+pub mod discovery;
 pub mod env;
 pub mod error;
 pub mod filter;

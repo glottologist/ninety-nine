@@ -1,7 +1,8 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crate::error::NinetyNineError;
 use crate::runner::listing::TestCase;
+use crate::runner::process::{CommandSpec, run_timed};
 use crate::types::TestOutcome;
 
 #[derive(Debug, Clone)]
@@ -94,79 +95,44 @@ fn collect_attempts(
 }
 
 fn execute_test(test_case: &TestCase, timeout: Duration) -> Result<TestResult, NinetyNineError> {
-    let start = Instant::now();
+    let spec = CommandSpec {
+        program: test_case.binary_path.clone(), // clone: CommandSpec owns the path
+        args: vec![
+            "--exact".into(),
+            test_case.name.as_ref().to_owned(),
+            "--nocapture".into(),
+        ],
+        cwd: None,
+    };
 
-    let expression = duct::cmd!(
-        &test_case.binary_path,
-        "--exact",
-        test_case.name.as_ref(),
-        "--nocapture"
-    )
-    .unchecked()
-    .stdout_capture()
-    .stderr_capture();
-
-    let handle = expression
-        .start()
-        .map_err(|e| NinetyNineError::RunnerExecution {
-            message: format!(
-                "failed to spawn test binary {}: {e}",
-                test_case.binary_path.display()
-            ),
-        })?;
-
-    let deadline = Instant::now() + timeout;
-    let poll_interval = Duration::from_millis(50);
-
-    loop {
-        match handle.try_wait() {
-            Ok(Some(output)) => {
-                let duration = start.elapsed();
-                return Ok(build_result(test_case, output, duration));
-            }
-            Ok(None) => {
-                if Instant::now() >= deadline {
-                    if let Err(e) = handle.kill() {
-                        tracing::warn!("failed to kill test process: {e}");
-                    }
-                    let duration = start.elapsed();
-                    return Ok(TestResult {
-                        test_case: test_case.clone(), // clone: result takes ownership for independent use
-                        outcome: TestOutcome::Timeout,
-                        duration,
-                        stdout: String::new(),
-                        stderr: String::new(),
-                        attempt: 1,
-                    });
-                }
-                std::thread::sleep(poll_interval);
-            }
-            Err(e) => {
-                return Err(NinetyNineError::RunnerExecution {
-                    message: format!("error waiting for test: {e}"),
-                });
-            }
-        }
-    }
+    let outcome = run_timed(&spec, timeout)?;
+    Ok(build_result(test_case, &outcome))
 }
 
 fn build_result(
     test_case: &TestCase,
-    output: &std::process::Output,
-    duration: Duration,
+    outcome: &crate::runner::process::ProcessOutcome,
 ) -> TestResult {
-    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    if outcome.timed_out {
+        return TestResult {
+            test_case: test_case.clone(), // clone: result takes ownership for independent use
+            outcome: TestOutcome::Timeout,
+            duration: outcome.duration,
+            stdout: outcome.stdout.clone(), // clone: TestResult owns captured output
+            stderr: outcome.stderr.clone(), // clone: TestResult owns captured output
+            attempt: 1,
+        };
+    }
 
-    let outcome = if output.status.success() {
+    let classified = if outcome.status.success() {
         // An `#[ignore]` test selected via --exact exits successfully without
         // running; libtest's result line is the only signal that nothing ran.
-        if stdout.contains("test result: ok. 0 passed;") {
+        if outcome.stdout.contains("test result: ok. 0 passed;") {
             TestOutcome::Ignored
         } else {
             TestOutcome::Passed
         }
-    } else if stderr.contains("panicked at") || stdout.contains("panicked at") {
+    } else if outcome.stderr.contains("panicked at") || outcome.stdout.contains("panicked at") {
         TestOutcome::Panic
     } else {
         TestOutcome::Failed
@@ -174,10 +140,10 @@ fn build_result(
 
     TestResult {
         test_case: test_case.clone(), // clone: result takes ownership for independent use
-        outcome,
-        duration,
-        stdout,
-        stderr,
+        outcome: classified,
+        duration: outcome.duration,
+        stdout: outcome.stdout.clone(), // clone: TestResult owns captured output
+        stderr: outcome.stderr.clone(), // clone: TestResult owns captured output
         attempt: 1,
     }
 }
@@ -191,7 +157,7 @@ mod tests {
     use rstest::rstest;
     use std::os::unix::process::ExitStatusExt;
     use std::path::PathBuf;
-    use std::process::{ExitStatus, Output};
+    use std::process::ExitStatus;
 
     fn mock_test_case() -> TestCase {
         TestCase {
@@ -204,11 +170,18 @@ mod tests {
         }
     }
 
-    fn mock_output(status_code: i32, stdout: &str, stderr: &str) -> Output {
-        Output {
+    fn mock_process(
+        status_code: i32,
+        stdout: &str,
+        stderr: &str,
+        timed_out: bool,
+    ) -> crate::runner::process::ProcessOutcome {
+        crate::runner::process::ProcessOutcome {
             status: ExitStatus::from_raw(status_code << 8),
-            stdout: stdout.as_bytes().to_vec(),
-            stderr: stderr.as_bytes().to_vec(),
+            stdout: stdout.to_string(),
+            stderr: stderr.to_string(),
+            duration: Duration::from_millis(10),
+            timed_out,
         }
     }
 
@@ -236,9 +209,17 @@ mod tests {
         #[case] expected: TestOutcome,
     ) {
         let tc = mock_test_case();
-        let output = mock_output(exit_code, stdout, stderr);
-        let result = build_result(&tc, &output, Duration::from_millis(10));
+        let output = mock_process(exit_code, stdout, stderr, false);
+        let result = build_result(&tc, &output);
         assert_eq!(result.outcome, expected);
+    }
+
+    #[test]
+    fn build_result_timeout() {
+        let tc = mock_test_case();
+        let output = mock_process(1, "", "", true);
+        let result = build_result(&tc, &output);
+        assert_eq!(result.outcome, TestOutcome::Timeout);
     }
 
     fn scripted_result(outcome: TestOutcome) -> TestResult {

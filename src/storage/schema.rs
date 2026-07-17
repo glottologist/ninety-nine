@@ -1,4 +1,4 @@
-pub const MIGRATIONS: &[&str] = &[MIGRATION_001];
+pub const MIGRATIONS: &[&str] = &[MIGRATION_001, MIGRATION_002];
 
 const MIGRATION_001: &str = r"
 CREATE TABLE IF NOT EXISTS run_sessions (
@@ -62,4 +62,25 @@ CREATE TABLE IF NOT EXISTS quarantine (
 );
 
 CREATE INDEX IF NOT EXISTS idx_quarantine_date ON quarantine(quarantined_at);
+";
+
+const MIGRATION_002: &str = r"
+ALTER TABLE run_sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'detection';
+ALTER TABLE test_runs ADD COLUMN phase TEXT;
+CREATE TABLE IF NOT EXISTS diagnostic_results (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES run_sessions(id),
+    package_name TEXT NOT NULL,
+    binary_name TEXT NOT NULL,
+    test_name TEXT NOT NULL,
+    class TEXT NOT NULL,
+    stress_runs INTEGER NOT NULL,
+    stress_failures INTEGER NOT NULL,
+    isolation_runs INTEGER NOT NULL,
+    isolation_failures INTEGER NOT NULL,
+    recording_path TEXT,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_diag_session ON diagnostic_results(session_id);
+CREATE INDEX IF NOT EXISTS idx_diag_test ON diagnostic_results(package_name, binary_name, test_name);
 ";

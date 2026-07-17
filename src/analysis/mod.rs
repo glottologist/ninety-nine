@@ -1,6 +1,9 @@
+pub mod classify;
 pub mod duration;
 pub mod pattern;
 pub mod trend;
+
+pub use classify::classify;
 
 use crate::types::{TestOutcome, TestRun};
 

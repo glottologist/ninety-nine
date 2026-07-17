@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use super::diagnose::SessionKind;
 use super::test_name::TestName;
 
 /// A session returned from storage queries. May be running or finished.
@@ -14,6 +15,8 @@ pub struct RunSession {
     pub flaky_count: u32,
     pub commit_hash: String,
     pub branch: String,
+    #[serde(default)]
+    pub kind: SessionKind,
 }
 
 /// A session that is actively running.
@@ -26,6 +29,7 @@ pub struct ActiveSession {
     started_at: DateTime<Utc>,
     commit_hash: String,
     branch: String,
+    kind: SessionKind,
 }
 
 impl ActiveSession {
@@ -36,6 +40,15 @@ impl ActiveSession {
             started_at: Utc::now(),
             commit_hash: commit_hash.to_string(),
             branch: branch.to_string(),
+            kind: SessionKind::Detection,
+        }
+    }
+
+    #[must_use]
+    pub fn start_diagnose(commit_hash: &str, branch: &str) -> Self {
+        Self {
+            kind: SessionKind::Diagnose,
+            ..Self::start(commit_hash, branch)
         }
     }
 
@@ -55,6 +68,7 @@ impl ActiveSession {
             flaky_count: 0,
             commit_hash: self.commit_hash.clone(), // clone: needed to create owned RunSession
             branch: self.branch.clone(),           // clone: needed to create owned RunSession
+            kind: self.kind,
         }
     }
 }

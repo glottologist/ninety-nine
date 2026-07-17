@@ -72,6 +72,30 @@ pub enum Commands {
         confidence: Option<f64>,
     },
 
+    #[command(about = "Multi-phase diagnose: stress, isolation, classify, optional rr")]
+    Diagnose {
+        #[arg(help = "Filter expression (DSL or test name pattern)")]
+        filter_expr: Option<String>,
+
+        #[arg(long, help = "Number of full-binary stress runs")]
+        stress_runs: Option<u32>,
+
+        #[arg(long, help = "Number of isolation runs per stress-failing candidate")]
+        isolation_runs: Option<u32>,
+
+        #[arg(long, help = "Record Intrinsic failures with rr when available")]
+        record: bool,
+
+        #[arg(long, help = "Disable rr recording even if config enables it")]
+        no_record: bool,
+
+        #[arg(long, help = "Directory for rr recordings")]
+        record_dir: Option<PathBuf>,
+
+        #[arg(long, help = "Confidence threshold for Bayesian scoring")]
+        confidence: Option<f64>,
+    },
+
     #[command(about = "Initialize configuration file")]
     Init {
         #[arg(long)]

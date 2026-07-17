@@ -21,6 +21,24 @@ By default, `test`, `status`, and `history` launch an interactive TUI. Use `-N` 
 
 ## Commands
 
+### diagnose
+
+Multi-phase stress → isolation → classify pipeline. See [Multi-phase Diagnose](../guides/diagnose.md).
+
+```bash
+cargo ninety-nine diagnose [OPTIONS] [FILTER_EXPR]
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `[FILTER_EXPR]` | none | Filter expression (same DSL as `test`) |
+| `--stress-runs <N>` | config (`3`) | Full-binary multi-threaded suite runs |
+| `--isolation-runs <N>` | config (`10`) | Serial `--exact` runs per candidate |
+| `--record` | false | Attempt rr recording for Intrinsic failures |
+| `--no-record` | false | Disable recording even if config enables it |
+| `--record-dir <PATH>` | config | Directory for rr traces |
+| `--confidence <F>` | config | Bayesian confidence threshold |
+
 ### test
 
 Run tests and detect flakiness. Each discovered test is executed multiple times, scored with Bayesian inference, and results are stored for trend analysis.
